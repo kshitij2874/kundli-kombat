@@ -1,11 +1,12 @@
 import React, { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronLeft, Download, Link, LoaderCircle, Mic, Save, Search, Share2, Sparkles, Square, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, Download, Link, LoaderCircle, Mic, RotateCcw, Save, Search, Share2, Sparkles, Square, Volume2, X } from "lucide-react";
 import "@fontsource/bebas-neue/400.css";
 import "@fontsource/space-grotesk/400.css";
 import "@fontsource/space-grotesk/600.css";
 import "./styles.css";
+import "./session.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const FOOTER = "For reflection and fun, not fate.";
@@ -427,7 +428,7 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
   );
 }
 
-function Today({ player, onAsk, onBattle }: { player: Player; onAsk: (voice?: boolean) => void; onBattle: () => void }) {
+function Today({ player, onAsk, onBattle, onNewSession }: { player: Player; onAsk: (voice?: boolean) => void; onBattle: () => void; onNewSession: () => void }) {
   const [reading, setReading] = useState<Reading | null>(null);
   const [loading, setLoading] = useState(true);
   const narration = useNarration();
@@ -439,7 +440,7 @@ function Today({ player, onAsk, onBattle }: { player: Player; onAsk: (voice?: bo
   return <div className="today-page">
     <div className="chart-ticker"><div>{[...ticker, ...ticker].map((item, i) => <span key={`${item.planet}-${i}`}>{item.planet.toUpperCase()} {Math.round(item.degree)}° {item.sign.toUpperCase()} <b>✦</b></span>)}</div></div>
     <section className="today-hero">
-      <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · Lahiri sidereal · evidence checked</p></div>
+      <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · Lahiri sidereal · evidence checked</p><button className="text-button new-session-button" type="button" onClick={onNewSession}><RotateCcw size={15} /> New session</button></div>
       <div className="weather-card"><header><span>INTERPRETER BRIEF</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><div className="evidence-row">{reading?.evidence.map((item) => <span key={item.planet}>{item.planet} / {item.sign}</span>)}</div><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>
     </section>
     <div className="ask-bar"><button type="button" className="ask-main" onClick={() => onAsk(false)}><Sparkles size={18} /> Ask the office anything…</button><button type="button" className="ask-mic" aria-label="Ask the Oracle with microphone" onClick={() => onAsk(true)}><Mic size={18} /></button></div>
@@ -619,14 +620,14 @@ function Management() {
   return <section className="manage-page"><header><div><p className="eyebrow">Agency control surface</p><h1>RUN THE<br /><em>OFFICE.</em></h1></div><div className="manage-summary"><span>ACTIVE TEAM</span><strong>{roles.filter((role) => role.active).length}/{roles.length}</strong><small>Browser-local demo configuration</small></div></header><div className="role-grid">{roles.map((role, index) => <article className={role.active ? "role-card active" : "role-card paused"} key={role.name}><header><div><span>SPECIALIST 0{index + 1}</span><h2>{role.name}</h2></div><button type="button" onClick={() => update(index, { active: !role.active })}>{role.active ? "Active" : "Paused"}</button></header><label><span>Job prompt</span><textarea value={role.job} onChange={(event) => update(index, { job: event.target.value })} /></label><label><span>Tools</span><input value={role.tools} onChange={(event) => update(index, { tools: event.target.value })} /></label><label><span>Guardrails</span><input value={role.guardrails} onChange={(event) => update(index, { guardrails: event.target.value })} /></label></article>)}</div><button className="primary-button manage-save" onClick={save}><Save size={18} /> {saved ? "Configuration saved" : "Save team configuration"}</button><p className="privacy-note">Demo control surface: settings persist in this browser. Production agent prompts remain version-controlled.</p></section>;
 }
 
-function AppShell({ player, challenge }: { player: Player; challenge?: Challenge | null }) {
+function AppShell({ player, challenge, onNewSession }: { player: Player; challenge?: Challenge | null; onNewSession: () => void }) {
   const [tab, setTab] = useState<Tab>(challenge ? "battle" : "today");
   const [oracle, setOracle] = useState(false);
   const [oracleVoice, setOracleVoice] = useState(false);
   function openOracle(voice = false) { setOracleVoice(voice); setOracle(true); }
   return <main className="app-shell" id="top">
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you", "manage"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
-    {tab === "today" && <Today player={player} onAsk={openOracle} onBattle={() => setTab("battle")} />}
+    {tab === "today" && <Today player={player} onAsk={openOracle} onBattle={() => setTab("battle")} onNewSession={onNewSession} />}
     {tab === "battle" && <BattleArena player={player} challenge={challenge} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
     {tab === "manage" && <Management />}
@@ -640,7 +641,12 @@ function App() {
     try { return JSON.parse(localStorage.getItem("kk-player") ?? "null") as Player | null; } catch { return null; }
   });
   function ready(value: Player) { localStorage.setItem("kk-player", JSON.stringify(value)); setPlayer(value); }
-  return player ? <AppShell player={player} challenge={challenge} /> : <Onboarding onReady={ready} challenged={Boolean(challenge)} />;
+  function newSession() {
+    localStorage.removeItem("kk-player");
+    setPlayer(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  return player ? <AppShell player={player} challenge={challenge} onNewSession={newSession} /> : <Onboarding onReady={ready} challenged={Boolean(challenge)} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);

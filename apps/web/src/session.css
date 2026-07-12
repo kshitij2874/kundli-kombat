@@ -1,0 +1,15 @@
+.new-session-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 13px;
+  padding-left: 0;
+  color: #9e9b95;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.new-session-button:hover {
+  color: #fff;
+}
