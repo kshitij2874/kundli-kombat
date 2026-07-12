@@ -59,3 +59,18 @@ Paste the tunnel URL only when Wrangler prompts. Deploy after the API has the `/
 ## 5. Hermes
 
 Hermes keys stay only in `~/.hermes/.env`. The repository must never copy or read that file. The Hermes-session-owned `kundli` skill receives only the public tunnel URL.
+
+The repo-owned source is `hermes/kundli`. A Hermes session installs that directory as
+the user-local `kundli` skill, after which the gateway must be restarted so Telegram
+loads it. Verify without exposing credentials:
+
+```sh
+hermes skills list
+hermes gateway status
+python3 hermes/kundli/scripts/call_hermes.py --probe
+python3 hermes/kundli/scripts/call_hermes.py --self-test
+```
+
+The skill must appear as `local` and `enabled`, and the gateway state must report
+Telegram `connected`. The application contract is `POST /hermes`; do not call the
+Telegram Bot API from this repository.

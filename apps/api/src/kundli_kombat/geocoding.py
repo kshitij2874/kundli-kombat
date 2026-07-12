@@ -40,6 +40,12 @@ def normalize_place_query(value: str) -> str:
     return " ".join(tokens)
 
 
+def provider_place_query(value: str) -> str:
+    """Open-Meteo expects a place name, not a comma-delimited country suffix."""
+    city = value.split(",", 1)[0] if "," in value else value
+    return normalize_place_query(city)
+
+
 def nearest_big_city_suggestions(value: str, limit: int = 3) -> list[str]:
     query_value = normalize_place_query(value)
     matches = process.extract(query_value, CITY_SEARCH_NAMES.keys(), scorer=fuzz.WRatio, limit=limit * 2)
@@ -55,7 +61,7 @@ def nearest_big_city_suggestions(value: str, limit: int = 3) -> list[str]:
 
 async def _cached(key: str) -> list[dict[str, object]] | None:
     local = _LOCAL_CACHE.get(key)
-    if local and time() - local[0] < CACHE_TTL_SECONDS:
+    if local and local[1] and time() - local[0] < CACHE_TTL_SECONDS:
         return local[1]
     try:
         record = await query("places:get", {"key": key})
@@ -64,13 +70,15 @@ async def _cached(key: str) -> list[dict[str, object]] | None:
     if not record or time() * 1000 - float(record["createdAt"]) > CACHE_TTL_SECONDS * 1000:
         return None
     results = record["results"]
-    if isinstance(results, list):
+    if isinstance(results, list) and results:
         _LOCAL_CACHE[key] = (time(), results)
         return results
     return None
 
 
 async def _save_cache(key: str, original: str, results: list[dict[str, object]]) -> None:
+    if not results:
+        return
     _LOCAL_CACHE[key] = (time(), results)
     if len(_LOCAL_CACHE) > 256:
         oldest = min(_LOCAL_CACHE, key=lambda item: _LOCAL_CACHE[item][0])
@@ -114,7 +122,10 @@ async def search_places(value: str) -> PlaceSearchResponse:
     with agent_step("geocoder.search", {"provider": "open-meteo", "queryKey": key}):
         async with httpx.AsyncClient(timeout=5) as client:
             response = await client.get(OPEN_METEO_URL, params={
-                "name": key, "count": 5, "language": "en", "format": "json",
+                "name": provider_place_query(original),
+                "count": 5,
+                "language": "en",
+                "format": "json",
             })
             response.raise_for_status()
             raw = response.json().get("results", [])

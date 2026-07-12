@@ -73,7 +73,10 @@ class ReadingResponse(BaseModel):
     text: str
     evidence: list[Evidence]
     refused: bool
-    policy: Literal["doom", "medical", "financial", "abuse", "under13"] | None
+    policy: Literal[
+        "doom", "medical", "pregnancy", "legal", "financial", "abuse",
+        "prompt_injection", "under13",
+    ] | None
     plan: list[str]
     traceId: str
     traceExported: bool

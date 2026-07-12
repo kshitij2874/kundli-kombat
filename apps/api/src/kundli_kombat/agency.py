@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import date
 from functools import lru_cache
 from typing import Literal
 from uuid import uuid4
@@ -14,7 +15,7 @@ from .observability import agent_step, langfuse_authenticated, traced_task
 from .policy import PolicyDecision, screen_question
 
 
-FOOTER = "For reflection and fun, not fate."
+FOOTER = "for reflection and fun, not fate."
 
 
 class ManagerPlan(BaseModel):
@@ -75,9 +76,17 @@ def _manager_plan(request: ReadingRequest) -> tuple[ManagerPlan, UsageCost]:
                 instructions=(
                     "You are the Desk Manager for Kundli Kombat. Produce a short, task-specific plan. "
                     "Delegate interpretation, enforce evidence from the supplied chart, and include a final review. "
+                    "For daily tasks, the supplied chart and currentDate are sufficient; never request another "
+                    "date, time, or location. "
                     "Never give medical, legal, financial, pregnancy, or death predictions."
                 ),
-                input=json.dumps({"kind": request.kind, "question": request.question, "placement": request.placement}),
+                input=json.dumps({
+                    "kind": request.kind,
+                    "question": request.question,
+                    "placement": request.placement,
+                    "currentDate": date.today().isoformat(),
+                    "chartSupplied": True,
+                }),
                 text_format=ManagerPlan,
                 reasoning={"effort": "low"},
                 max_output_tokens=500,
@@ -125,6 +134,7 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
         "placement": request.placement,
         "tone": request.tone,
         "language": request.lang,
+        "currentDate": date.today().isoformat(),
         "managerPlan": plan.steps,
         "placements": placements,
     }
@@ -137,6 +147,8 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
                     "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
                     "Tone may be comfort, straight, or playful roast; never insult the real person. "
                     "Write 2-4 short sentences and do not add a disclaimer."
+                    " For a daily task, the supplied chart and currentDate are sufficient: always provide "
+                    "a useful reflection and never ask the user for another date, time, or location."
                 ),
                 input=json.dumps(payload),
                 text_format=InterpreterDraft,
@@ -168,7 +180,7 @@ async def _store_escalation(request: ReadingRequest, decision: PolicyDecision) -
     try:
         args = {
             "question": request.question or "",
-            "policy": "medical" if decision.policy == "under13" else decision.policy,
+            "policy": decision.policy,
             "context": {"kind": request.kind, "tone": request.tone},
         }
         if not request.playerId.startswith("local-"):

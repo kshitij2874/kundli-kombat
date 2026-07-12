@@ -34,10 +34,21 @@ export default defineSchema({
     sourceUrl: v.string(), chart: v.any(), big3: v.object({ sun: v.string(), moon: v.string(), rising: v.string() }),
   }).index("by_name", ["name"]),
   escalations: defineTable({
-    playerId: v.optional(v.id("players")), question: v.string(), policy: v.union(v.literal("doom"), v.literal("medical"), v.literal("financial"), v.literal("abuse")), context: v.any(), createdAt: v.number(),
+    playerId: v.optional(v.id("players")), question: v.string(), policy: v.union(
+      v.literal("doom"), v.literal("medical"), v.literal("pregnancy"), v.literal("legal"),
+      v.literal("financial"), v.literal("abuse"), v.literal("prompt_injection"), v.literal("under13")
+    ), context: v.any(), createdAt: v.number(),
   }).index("by_created_at", ["createdAt"]),
   policies: defineTable({ key: v.string(), value: v.any() }).index("by_key", ["key"]),
   specialists: defineTable({ name: v.string(), jobPrompt: v.string(), tools: v.array(v.string()), guardrails: v.array(v.string()), active: v.boolean(), createdAt: v.number() }).index("by_name", ["name"]),
   events: defineTable({ playerId: v.optional(v.id("players")), kind: v.string(), meta: v.any(), createdAt: v.number() }).index("by_player", ["playerId", "createdAt"]).index("by_kind", ["kind", "createdAt"]),
   placeCache: defineTable({ key: v.string(), query: v.string(), results: v.array(v.any()), createdAt: v.number() }).index("by_key", ["key"]),
+  telegramIdentities: defineTable({
+    channel: v.literal("telegram"), userId: v.string(), chatId: v.string(),
+    threadId: v.optional(v.string()), playerId: v.id("players"),
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_channel_user", ["channel", "userId"]),
+  hermesRequests: defineTable({
+    requestId: v.string(), fingerprint: v.string(), response: v.any(), createdAt: v.number(),
+  }).index("by_request_id", ["requestId"]),
 });

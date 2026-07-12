@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .agency import create_reading
 from .battles import battle, list_celebrities
 from .geocoding import search_places
+from .hermes import process_hermes
 from .models import (
     BattleRequest, BattleResponse, CelebritySummary, OnboardRequest, OnboardResponse,
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
@@ -49,6 +51,12 @@ def health() -> dict[str, object]:
         }
     response["latencyMs"] = trace.latency_ms
     return response
+
+
+@app.post("/hermes")
+async def hermes_gateway(payload: dict[str, object]) -> JSONResponse:
+    response, status = await process_hermes(payload)
+    return JSONResponse(response, status_code=status)
 
 
 @app.post("/onboard", response_model=OnboardResponse)

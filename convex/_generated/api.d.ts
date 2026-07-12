@@ -12,6 +12,7 @@ import type * as battles from "../battles.js";
 import type * as celebrities from "../celebrities.js";
 import type * as escalations from "../escalations.js";
 import type * as health from "../health.js";
+import type * as hermes from "../hermes.js";
 import type * as places from "../places.js";
 import type * as players from "../players.js";
 import type * as readings from "../readings.js";
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   celebrities: typeof celebrities;
   escalations: typeof escalations;
   health: typeof health;
+  hermes: typeof hermes;
   places: typeof places;
   players: typeof players;
   readings: typeof readings;
