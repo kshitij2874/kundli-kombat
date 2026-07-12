@@ -1,0 +1,23 @@
+{
+  "name": "kundli-kombat",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared",
+    "workers/transit-ticker"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace @kundli-kombat/web run dev",
+    "build:web": "npm --workspace @kundli-kombat/web run build",
+    "test:web": "npm --workspace @kundli-kombat/web run test",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "worker:dev": "npm --workspace @kundli-kombat/transit-ticker run dev",
+    "worker:deploy": "npm --workspace @kundli-kombat/transit-ticker run deploy"
+  },
+  "devDependencies": {
+    "convex": "^1.28.0"
+  }
+}
+

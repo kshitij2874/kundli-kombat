@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kundli-kombat-transit-ticker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-12",
+  "triggers": { "crons": ["0 * * * *"] }
+}
