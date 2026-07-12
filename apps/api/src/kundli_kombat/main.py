@@ -5,7 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .agency import create_reading
-from .models import OnboardRequest, OnboardResponse, ReadingRequest, ReadingResponse
+from .geocoding import search_places
+from .models import (
+    OnboardRequest, OnboardResponse, PlaceSearchResponse, ReadingRequest, ReadingResponse,
+)
 from .onboarding import onboard
 from .observability import flush_traces, traced_task
 
@@ -21,6 +24,7 @@ app = FastAPI(title="Kundli Kombat Agency", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.web_origin],
+    allow_origin_regex=r"^(http://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+)(:\d+)?|https://[a-z0-9-]+\.pages\.dev)$",
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Request-ID"],
@@ -57,3 +61,8 @@ async def reading(request: ReadingRequest) -> ReadingResponse:
 async def oracle(request: ReadingRequest) -> ReadingResponse:
     request.kind = "oracle"
     return await create_reading(request)
+
+
+@app.get("/places", response_model=PlaceSearchResponse)
+async def places(q: str) -> PlaceSearchResponse:
+    return await search_places(q)

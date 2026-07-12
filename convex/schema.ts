@@ -39,5 +39,6 @@ export default defineSchema({
   policies: defineTable({ key: v.string(), value: v.any() }).index("by_key", ["key"]),
   specialists: defineTable({ name: v.string(), jobPrompt: v.string(), tools: v.array(v.string()), guardrails: v.array(v.string()), active: v.boolean(), createdAt: v.number() }).index("by_name", ["name"]),
   events: defineTable({ playerId: v.optional(v.id("players")), kind: v.string(), meta: v.any(), createdAt: v.number() }).index("by_player", ["playerId", "createdAt"]).index("by_kind", ["kind", "createdAt"]),
+  placeCache: defineTable({ key: v.string(), query: v.string(), results: v.array(v.any()), createdAt: v.number() }).index("by_key", ["key"]),
 });
 

@@ -10,10 +10,18 @@ class ConvexUnavailable(RuntimeError):
 
 
 async def mutation(path: str, args: dict[str, Any]) -> Any:
+    return await _call("mutation", path, args)
+
+
+async def query(path: str, args: dict[str, Any]) -> Any:
+    return await _call("query", path, args)
+
+
+async def _call(function_type: str, path: str, args: dict[str, Any]) -> Any:
     settings = get_settings()
     if settings.convex_url is None:
         raise ConvexUnavailable("CONVEX_URL is not configured")
-    url = f"{str(settings.convex_url).rstrip('/')}/api/mutation"
+    url = f"{str(settings.convex_url).rstrip('/')}/api/{function_type}"
     headers = {"Content-Type": "application/json"}
     if settings.convex_deploy_key:
         headers["Authorization"] = f"Convex {settings.convex_deploy_key}"
@@ -26,6 +34,5 @@ async def mutation(path: str, args: dict[str, Any]) -> Any:
         response.raise_for_status()
         payload = response.json()
     if payload.get("status") != "success":
-        raise ConvexUnavailable(payload.get("errorMessage", "Convex mutation failed"))
+        raise ConvexUnavailable(payload.get("errorMessage", f"Convex {function_type} failed"))
     return payload.get("value")
-

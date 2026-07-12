@@ -80,3 +80,20 @@ class ReadingResponse(BaseModel):
     latencyMs: int
     costUsd: float
 
+
+class PlaceResult(BaseModel):
+    id: str
+    label: str
+    name: str
+    country: str
+    admin1: str | None = None
+    lat: float
+    lon: float
+    timezone: str
+
+
+class PlaceSearchResponse(BaseModel):
+    query: str
+    results: list[PlaceResult]
+    suggestions: list[str]
+    cached: bool
