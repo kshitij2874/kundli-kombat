@@ -159,3 +159,13 @@ class CelebritySummary(BaseModel):
     big3: dict[str, str]
     timeApproximate: bool = True
     stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+
+
+class CelebrityVerifyRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+
+
+class VerifiedCelebrity(CelebritySummary):
+    sourceUrl: str
+    chart: dict[str, object]
+    verifiedBy: Literal["Linkup"]

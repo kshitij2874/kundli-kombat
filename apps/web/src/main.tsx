@@ -33,7 +33,7 @@ type Player = {
 };
 type Reading = { text: string; evidence: Placement[]; refused: boolean; policy?: string; plan: string[]; latencyMs: number; costUsd: number };
 type FighterStats = Record<"Love" | "Career" | "Luck" | "Fire" | "Chaos", number>;
-type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean; stats: FighterStats };
+type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean; stats: FighterStats; chart?: Player["chart"]; sourceUrl?: string; verifiedBy?: "Linkup" };
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 type Challenge = { chart: Player["chart"]; id: string };
@@ -466,6 +466,8 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   const [knownSuggestions, setKnownSuggestions] = useState<string[]>([]);
   const [knownFinding, setKnownFinding] = useState(false);
   const [knownPreview, setKnownPreview] = useState<KnownPreview | null>(null);
+  const [celebrityQuery, setCelebrityQuery] = useState("");
+  const [verifyingCelebrity, setVerifyingCelebrity] = useState(false);
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
@@ -501,12 +503,25 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
         ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: challenge.id, p2Chart: challenge.chart, tone }
         : knownPreview
           ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: "local-known-person", p2Chart: knownPreview.chart, p2Name: knownPreview.name, tone }
+        : opponent?.chart
+          ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: "local-linkup-celebrity", p2Chart: opponent.chart, p2Name: opponent.name, tone }
         : { p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone };
       const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify(battleInput) });
       setResult(nextResult);
       setRoundIndex(0); setRoundPhase("intro");
     } catch { setError("The Arena lost the signal. Try the round again."); }
     finally { setLoading(false); }
+  }
+  async function verifyCelebrity(event: FormEvent) {
+    event.preventDefault(); setError(""); setVerifyingCelebrity(true);
+    try {
+      const verified = await api<Celebrity>("/celebrities/verify", {
+        method: "POST", body: JSON.stringify({ name: celebrityQuery }),
+      });
+      setCelebrities((current) => [verified, ...current.filter((item) => item.name !== verified.name)]);
+      setSelected(verified.name); setCelebrityQuery("");
+    } catch { setError("Linkup could not verify that celebrity. Try their full name."); }
+    finally { setVerifyingCelebrity(false); }
   }
   async function prepareKnown(event: FormEvent) {
     event.preventDefault(); setError("");
@@ -564,7 +579,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
       {!challenge && <div className="opponent-tabs"><button className={opponentMode === "celebrity" ? "active" : ""} onClick={() => { setOpponentMode("celebrity"); setKnownPreview(null); }}>Famous personality</button><button className={opponentMode === "known" ? "active" : ""} onClick={() => setOpponentMode("known")}>Someone I know</button></div>}
-      {!challenge && opponentMode === "celebrity" && <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>}
+      {!challenge && opponentMode === "celebrity" && <><form className="linkup-search" onSubmit={verifyCelebrity}><div><span>POWERED BY LINKUP</span><strong>Can’t find them? Verify any celebrity from live web sources.</strong></div><input required minLength={2} value={celebrityQuery} onChange={(event) => setCelebrityQuery(event.target.value)} placeholder="Enter full celebrity name" /><button disabled={verifyingCelebrity}>{verifyingCelebrity ? "Researching…" : "Verify with Linkup"}</button></form><div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>{item.verifiedBy ? "LINKUP ✓" : `0${index + 1}`}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>View verification source ↗</a>}</button>)}</div></>}
       {!challenge && opponentMode === "known" && !knownPreview && <form className="known-form" onSubmit={prepareKnown}><div className="known-form-head"><div><span>PRIVATE COMPATIBILITY</span><h2>Battle your partner or friend</h2></div><small>Calculated for this battle only. Their birth details are not saved.</small></div><div className="known-fields"><label><span>Their name</span><input required value={knownName} onChange={(event) => setKnownName(event.target.value)} placeholder="Wife, husband, partner, friend…" /></label><label><span>Birth date</span><input required type="date" value={knownDob} onChange={(event) => setKnownDob(event.target.value)} /></label><label><span>Birth time</span><input required={!knownUnknown} disabled={knownUnknown} type="time" value={knownTob} onChange={(event) => setKnownTob(event.target.value)} /></label><label className="known-place"><span>Birth place</span><div className="input-icon"><Search size={17} /><input required value={knownPlace?.label ?? knownPlaceQuery} onChange={(event) => { setKnownPlace(null); setKnownPlaceQuery(event.target.value); }} placeholder="Start typing a city" />{knownFinding && <i />}</div>{(knownPlaces.length > 0 || knownSuggestions.length > 0) && <div className="place-menu">{knownPlaces.map((item) => <button type="button" key={item.id} onClick={() => { setKnownPlace(item); setKnownPlaces([]); setKnownSuggestions([]); }}><strong>{item.name}</strong><span>{item.country} · {item.timezone}</span></button>)}{knownPlaces.length === 0 && knownSuggestions.map((item) => <button type="button" key={item} onClick={() => setKnownPlaceQuery(item)}><strong>{item}</strong><span>Search nearest city</span></button>)}</div>}</label></div><label className="check-row"><input type="checkbox" checked={knownUnknown} onChange={(event) => { setKnownUnknown(event.target.checked); if (event.target.checked) setKnownTob(""); }} /><span><Check size={13} /> Birth time unknown</span></label><button className="primary-button" disabled={loading}>{loading ? "Calculating their fighter…" : "Create compatibility fighter"}<ArrowRight size={18} /></button></form>}
       {playerStats && (opponent || challengeStats || knownPreview) && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(challenge ? "CHALLENGER" : knownPreview ? knownPreview.name : opponent!.name, challenge ? challengeStats! : knownPreview ? knownPreview.stats : opponent!.stats, "p2")}</div></div>}
       {knownPreview?.timeNotice && <p className="time-notice arena-time-notice">{knownPreview.timeNotice}</p>}

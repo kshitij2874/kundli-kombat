@@ -11,15 +11,16 @@ from .battle_stats import fighter_stats
 from .geocoding import search_places
 from .hermes import process_hermes
 from .models import (
-    BattleRequest, BattleResponse, CelebritySummary, ChartPreviewResponse,
+    BattleRequest, BattleResponse, CelebritySummary, CelebrityVerifyRequest, ChartPreviewResponse,
     FighterStatsRequest, FighterStatsResponse,
-    OnboardRequest, OnboardResponse,
+    OnboardRequest, OnboardResponse, VerifiedCelebrity,
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
 from .ephemeris import calculate_chart
 from .observability import flush_traces, langfuse_authenticated, traced_task
 from .voice import VoiceRequest, VoiceUnavailable, generate_voice
+from .linkup import LinkupUnavailable, verify_celebrity
 
 
 @asynccontextmanager
@@ -106,6 +107,14 @@ async def places(q: str) -> PlaceSearchResponse:
 @app.get("/celebrities", response_model=list[CelebritySummary])
 def celebrities() -> list[CelebritySummary]:
     return list_celebrities()
+
+
+@app.post("/celebrities/verify", response_model=VerifiedCelebrity)
+async def verify_new_celebrity(request: CelebrityVerifyRequest) -> VerifiedCelebrity:
+    try:
+        return VerifiedCelebrity.model_validate(await verify_celebrity(request.name))
+    except LinkupUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/fighter-stats", response_model=FighterStatsResponse)
