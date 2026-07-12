@@ -29,6 +29,9 @@ type Player = {
   timeNotice?: string;
 };
 type Reading = { text: string; evidence: Placement[]; refused: boolean; policy?: string; plan: string[]; latencyMs: number; costUsd: number };
+type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean };
+type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
+type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -226,13 +229,49 @@ function Today({ player, onAsk }: { player: Player; onAsk: () => void }) {
   </div>;
 }
 
+function BattleArena({ player }: { player: Player }) {
+  const [celebrities, setCelebrities] = useState<Celebrity[]>([]);
+  const [selected, setSelected] = useState<string>("");
+  const [tone, setTone] = useState<"friendly" | "savage">("friendly");
+  const [result, setResult] = useState<BattleResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
+  }, []);
+  async function fight() {
+    if (!selected) return;
+    setLoading(true); setResult(null); setError("");
+    try {
+      setResult(await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify({ p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone }) }));
+    } catch { setError("The Arena lost the signal. Try the round again."); }
+    finally { setLoading(false); }
+  }
+  return <section className="arena-page">
+    <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
+    {!result && <>
+      <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>
+      {error && <p className="form-error">{error}</p>}
+      <button className="primary-button fight-button" disabled={loading || !selected} onClick={fight}>{loading ? "Charts entering the ring…" : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>
+      {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
+    </>}
+    {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+      <header><div><span>BATTLE / {result.code}</span><h2>YOU <b>VS</b> {result.opponent}</h2></div><div className="verdict"><strong>{result.verdictPct}%</strong><span>COMPATIBILITY</span></div></header>
+      <div className="rounds">{result.rounds.map((round, index) => <motion.article key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .15 * index }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><b style={{ width: `${round.p1Score}%` }} /></i><i><b style={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
+      <div className="prediction"><span>JOINT PREDICTION</span><p>“{result.prediction}”</p></div>
+      <footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer>
+      <button className="primary-button" onClick={() => setResult(null)}>Rematch with house rules <ArrowRight size={18} /></button>
+    </motion.div>}
+  </section>;
+}
+
 function AppShell({ player }: { player: Player }) {
   const [tab, setTab] = useState<Tab>("today");
   const [oracle, setOracle] = useState(false);
   return <main className="app-shell" id="top">
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
     {tab === "today" && <Today player={player} onAsk={() => setOracle(true)} />}
-    {tab === "battle" && <section className="coming"><span>PHASE 03</span><h1>THE ARENA<br /><em>IS NEXT.</em></h1><p>Your chart is ready. Celebrity matchmaking is entering the ring.</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
+    {tab === "battle" && <BattleArena player={player} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
     <AnimatePresence>{oracle && <Oracle player={player} onClose={() => setOracle(false)} />}</AnimatePresence>
   </main>;

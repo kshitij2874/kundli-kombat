@@ -97,3 +97,44 @@ class PlaceSearchResponse(BaseModel):
     results: list[PlaceResult]
     suggestions: list[str]
     cached: bool
+
+
+class BattleRequest(BaseModel):
+    p1Id: str = Field(min_length=1, max_length=100)
+    p1Chart: dict[str, object]
+    p2Id: str | None = Field(default=None, max_length=100)
+    p2Chart: dict[str, object] | None = None
+    celebrity: str | None = Field(default=None, max_length=100)
+    tone: Literal["friendly", "savage"] = "friendly"
+
+
+class BattleRound(BaseModel):
+    name: Literal["Communication", "Chaos", "Loyalty"]
+    p1Score: int = Field(ge=0, le=100)
+    p2Score: int = Field(ge=0, le=100)
+    compatibilityScore: int = Field(ge=0, le=100)
+    line: str
+    aspects: list[str]
+
+
+class BattleResponse(BaseModel):
+    battleId: str
+    code: str
+    opponent: str
+    rounds: list[BattleRound]
+    verdictPct: int = Field(ge=0, le=100)
+    prediction: str
+    winner: Literal["p1", "p2", "tie"]
+    cardId: str
+    traceId: str
+    traceExported: bool
+    latencyMs: int
+    costUsd: float
+
+
+class CelebritySummary(BaseModel):
+    name: str
+    place: str
+    dob: str
+    big3: dict[str, str]
+    timeApproximate: bool = True

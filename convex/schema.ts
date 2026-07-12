@@ -21,7 +21,7 @@ export default defineSchema({
   }).index("by_player", ["playerId", "createdAt"]),
   battles: defineTable({
     code: v.string(), p1Id: v.id("players"), p2Id: v.optional(v.id("players")), celebrity: v.optional(v.string()),
-    rounds: v.array(v.object({ name: v.string(), p1Score: v.number(), p2Score: v.number(), line: v.string() })),
+    rounds: v.array(v.object({ name: v.string(), p1Score: v.number(), p2Score: v.number(), compatibilityScore: v.number(), line: v.string(), aspects: v.array(v.string()) })),
     verdictPct: v.number(), prediction: v.string(), cardId: v.optional(v.id("cards")), latencyMs: v.number(),
     costUsd: v.number(), langfuseTraceId: v.string(), createdAt: v.number(),
   }).index("by_code", ["code"]).index("by_created_at", ["createdAt"]),
@@ -41,4 +41,3 @@ export default defineSchema({
   events: defineTable({ playerId: v.optional(v.id("players")), kind: v.string(), meta: v.any(), createdAt: v.number() }).index("by_player", ["playerId", "createdAt"]).index("by_kind", ["kind", "createdAt"]),
   placeCache: defineTable({ key: v.string(), query: v.string(), results: v.array(v.any()), createdAt: v.number() }).index("by_key", ["key"]),
 });
-

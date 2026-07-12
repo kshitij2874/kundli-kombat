@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .agency import create_reading
+from .battles import battle, list_celebrities
 from .geocoding import search_places
 from .models import (
-    OnboardRequest, OnboardResponse, PlaceSearchResponse, ReadingRequest, ReadingResponse,
+    BattleRequest, BattleResponse, CelebritySummary, OnboardRequest, OnboardResponse,
+    PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
 from .observability import flush_traces, traced_task
@@ -66,3 +68,13 @@ async def oracle(request: ReadingRequest) -> ReadingResponse:
 @app.get("/places", response_model=PlaceSearchResponse)
 async def places(q: str) -> PlaceSearchResponse:
     return await search_places(q)
+
+
+@app.get("/celebrities", response_model=list[CelebritySummary])
+def celebrities() -> list[CelebritySummary]:
+    return list_celebrities()
+
+
+@app.post("/battle", response_model=BattleResponse)
+async def create_battle(request: BattleRequest) -> BattleResponse:
+    return await battle(request)
