@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
+from .models import OnboardRequest, OnboardResponse
+from .onboarding import onboard
 from .observability import flush_traces, traced_task
 
 
@@ -36,4 +38,9 @@ def health() -> dict[str, object]:
         }
     response["latencyMs"] = trace.latency_ms
     return response
+
+
+@app.post("/onboard", response_model=OnboardResponse)
+async def create_player(request: OnboardRequest) -> OnboardResponse:
+    return await onboard(request)
 

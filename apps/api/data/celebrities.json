@@ -1,0 +1,9 @@
+[
+  {"name":"Virat Kohli","dob":"1988-11-05","place":"Delhi","lat":28.6139,"lon":77.2090,"tz":"Asia/Kolkata","tobUnknown":true,"timeLabel":"time approximate"},
+  {"name":"MS Dhoni","dob":"1981-07-07","place":"Ranchi","lat":23.3441,"lon":85.3096,"tz":"Asia/Kolkata","tobUnknown":true,"timeLabel":"time approximate"},
+  {"name":"Shah Rukh Khan","dob":"1965-11-02","place":"New Delhi","lat":28.6139,"lon":77.2090,"tz":"Asia/Kolkata","tobUnknown":true,"timeLabel":"time approximate"},
+  {"name":"Deepika Padukone","dob":"1986-01-05","place":"Copenhagen","lat":55.6761,"lon":12.5683,"tz":"Europe/Copenhagen","tobUnknown":true,"timeLabel":"time approximate"},
+  {"name":"Taylor Swift","dob":"1989-12-13","place":"West Reading, USA","lat":40.3337,"lon":-75.9474,"tz":"America/New_York","tobUnknown":true,"timeLabel":"time approximate"},
+  {"name":"Elon Musk","dob":"1971-06-28","place":"Pretoria","lat":-25.7479,"lon":28.2293,"tz":"Africa/Johannesburg","tobUnknown":true,"timeLabel":"time approximate"}
+]
+
