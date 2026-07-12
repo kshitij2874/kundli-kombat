@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     langfuse_secret_key: str | None = Field(default=None, alias="LANGFUSE_SECRET_KEY")
     langfuse_host: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_HOST")
+    langfuse_base_url: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_BASE_URL")
     elevenlabs_api_key: str | None = Field(default=None, alias="ELEVENLABS_API_KEY")
     linkup_api_key: str | None = Field(default=None, alias="LINKUP_API_KEY")
     dodo_api_key: str | None = Field(default=None, alias="DODO_API_KEY")
@@ -28,7 +29,15 @@ class Settings(BaseSettings):
 
     @property
     def langfuse_configured(self) -> bool:
-        return bool(self.langfuse_public_key and self.langfuse_secret_key and self.langfuse_host)
+        return bool(
+            self.langfuse_public_key
+            and self.langfuse_secret_key
+            and (self.langfuse_base_url or self.langfuse_host)
+        )
+
+    @property
+    def langfuse_endpoint(self) -> AnyHttpUrl | None:
+        return self.langfuse_base_url or self.langfuse_host
 
     @property
     def agency_configured(self) -> bool:

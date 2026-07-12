@@ -27,7 +27,7 @@ def get_langfuse() -> Langfuse:
     return Langfuse(
         public_key=settings.langfuse_public_key,
         secret_key=settings.langfuse_secret_key,
-        host=str(settings.langfuse_host) if settings.langfuse_host else None,
+        base_url=str(settings.langfuse_endpoint) if settings.langfuse_endpoint else None,
         environment=settings.app_env,
         release="kundli-kombat-0.1.0",
     )

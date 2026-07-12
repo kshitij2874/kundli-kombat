@@ -9,7 +9,7 @@ Create `apps/api/.env` by copying `apps/api/.env.example`, then replace the plac
 - `OPENAI_API_KEY`: OpenAI project key funded by the buildathon grant.
 - `OPENAI_SOL_MODEL`: keep `gpt-5.6-sol` for Manager, Interpreter, and Referee quality.
 - `OPENAI_MINI_MODEL`: defaults to `gpt-5-mini` for low-cost routing, policy support, and comms; change only if the event grant exposes a different mini model.
-- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`: values from the Langfuse project. Use the exact region-specific host shown by Langfuse.
+- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`: values from the same Langfuse project. Use the exact region-specific base URL shown by Langfuse.
 - `ELEVENLABS_API_KEY`: workspace key used only by the API for TTS.
 - `LINKUP_API_KEY`: server-side key for celebrity lookup and news garnish.
 - `DODO_API_KEY`: Dodo live-mode server key. Never put this in the web app.
