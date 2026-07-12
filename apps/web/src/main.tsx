@@ -1,7 +1,7 @@
 import React, { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronLeft, Download, Link, LoaderCircle, Mic, Search, Share2, Sparkles, Square, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, Download, Link, LoaderCircle, Mic, Save, Search, Share2, Sparkles, Square, Volume2, X } from "lucide-react";
 import "@fontsource/bebas-neue/400.css";
 import "@fontsource/space-grotesk/400.css";
 import "@fontsource/space-grotesk/600.css";
@@ -11,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const FOOTER = "For reflection and fun, not fate.";
 
 type Tone = "comfort" | "straight" | "roast";
-type Tab = "today" | "battle" | "you";
+type Tab = "today" | "battle" | "you" | "manage";
 type Stage = "details" | "rewind" | "reveal" | "ready";
 type VoiceKind = "daily" | "battle" | "oracle";
 type VoiceState = "idle" | "loading" | "playing" | "error";
@@ -38,6 +38,14 @@ type BattleRound = { name: string; p1Score: number; p2Score: number; compatibili
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 type Challenge = { chart: Player["chart"]; id: string };
 type KnownPreview = { name: string; chart: Player["chart"]; stats: FighterStats; chartMode: "birth-time" | "solar"; timeNotice?: string };
+type ManagedRole = { name: string; job: string; tools: string; guardrails: string; active: boolean };
+
+const DEFAULT_ROLES: ManagedRole[] = [
+  { name: "Desk Manager", job: "Plan the task, delegate to specialists, and review evidence before sending.", tools: "Langfuse, Convex", guardrails: "Under $0.10 · evidence required", active: true },
+  { name: "Interpreter", job: "Turn supplied chart placements into short, useful plain-language readings.", tools: "OpenAI Responses", guardrails: "No unsupported chart claims", active: true },
+  { name: "Safety Sentinel", job: "Screen high-risk questions and create escalation records.", tools: "Policy rules, Convex", guardrails: "Never bypass a refusal", active: true },
+  { name: "Match Referee", job: "Narrate deterministic battle scores in a playful, slightly savage voice.", tools: "OpenAI Responses, ElevenLabs", guardrails: "Roast charts, never people", active: true },
+];
 
 type KkSpeechResult = { 0?: { transcript?: string } };
 type KkSpeechEvent = { results: { length: number; [index: number]: KkSpeechResult } };
@@ -575,16 +583,34 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   </section>;
 }
 
+function Management() {
+  const [roles, setRoles] = useState<ManagedRole[]>(() => {
+    try { return JSON.parse(localStorage.getItem("kk-managed-roles") ?? "null") || DEFAULT_ROLES; }
+    catch { return DEFAULT_ROLES; }
+  });
+  const [saved, setSaved] = useState(false);
+  function update(index: number, patch: Partial<ManagedRole>) {
+    setSaved(false);
+    setRoles((current) => current.map((role, roleIndex) => roleIndex === index ? { ...role, ...patch } : role));
+  }
+  function save() {
+    localStorage.setItem("kk-managed-roles", JSON.stringify(roles));
+    setSaved(true);
+  }
+  return <section className="manage-page"><header><div><p className="eyebrow">Agency control surface</p><h1>RUN THE<br /><em>OFFICE.</em></h1></div><div className="manage-summary"><span>ACTIVE TEAM</span><strong>{roles.filter((role) => role.active).length}/{roles.length}</strong><small>Browser-local demo configuration</small></div></header><div className="role-grid">{roles.map((role, index) => <article className={role.active ? "role-card active" : "role-card paused"} key={role.name}><header><div><span>SPECIALIST 0{index + 1}</span><h2>{role.name}</h2></div><button type="button" onClick={() => update(index, { active: !role.active })}>{role.active ? "Active" : "Paused"}</button></header><label><span>Job prompt</span><textarea value={role.job} onChange={(event) => update(index, { job: event.target.value })} /></label><label><span>Tools</span><input value={role.tools} onChange={(event) => update(index, { tools: event.target.value })} /></label><label><span>Guardrails</span><input value={role.guardrails} onChange={(event) => update(index, { guardrails: event.target.value })} /></label></article>)}</div><button className="primary-button manage-save" onClick={save}><Save size={18} /> {saved ? "Configuration saved" : "Save team configuration"}</button><p className="privacy-note">Demo control surface: settings persist in this browser. Production agent prompts remain version-controlled.</p></section>;
+}
+
 function AppShell({ player, challenge }: { player: Player; challenge?: Challenge | null }) {
   const [tab, setTab] = useState<Tab>(challenge ? "battle" : "today");
   const [oracle, setOracle] = useState(false);
   const [oracleVoice, setOracleVoice] = useState(false);
   function openOracle(voice = false) { setOracleVoice(voice); setOracle(true); }
   return <main className="app-shell" id="top">
-    <nav className="app-nav"><Brand /><div>{(["today", "battle", "you"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
+    <nav className="app-nav"><Brand /><div>{(["today", "battle", "you", "manage"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
     {tab === "today" && <Today player={player} onAsk={openOracle} onBattle={() => setTab("battle")} />}
     {tab === "battle" && <BattleArena player={player} challenge={challenge} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
+    {tab === "manage" && <Management />}
     <AnimatePresence>{oracle && <Oracle player={player} autoListen={oracleVoice} onClose={() => { setOracle(false); setOracleVoice(false); }} />}</AnimatePresence>
   </main>;
 }
