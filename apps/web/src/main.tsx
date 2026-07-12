@@ -1,7 +1,7 @@
 import React, { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronLeft, LoaderCircle, Mic, Search, Sparkles, Square, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, Download, Link, LoaderCircle, Mic, Search, Share2, Sparkles, Square, Volume2, X } from "lucide-react";
 import "@fontsource/bebas-neue/400.css";
 import "@fontsource/space-grotesk/400.css";
 import "@fontsource/space-grotesk/600.css";
@@ -176,6 +176,35 @@ function useSpeechInput(onTranscript: (text: string) => void) {
 function battleNarration(result: BattleResult) {
   const rounds = result.rounds.map((round) => `${round.name}. ${round.p1Score} to ${round.p2Score}. ${round.line}`).join(" ");
   return `You versus ${result.opponent}. ${result.verdictPct} percent compatibility. ${rounds} Joint prediction. ${result.prediction}`;
+}
+
+async function resultCardBlob(result: BattleResult): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080; canvas.height = 1350;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas unavailable");
+  const p1Wins = result.rounds.filter((round) => round.p1Score > round.p2Score).length;
+  const p2Wins = result.rounds.filter((round) => round.p2Score > round.p1Score).length;
+  const winner = result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent.toUpperCase()} WINS` : "COSMIC DRAW";
+  const gradient = context.createLinearGradient(0, 0, 1080, 1350);
+  gradient.addColorStop(0, "#21172b"); gradient.addColorStop(.55, "#0b0b0d"); gradient.addColorStop(1, "#241c0b");
+  context.fillStyle = gradient; context.fillRect(0, 0, 1080, 1350);
+  context.strokeStyle = "#f5c443"; context.lineWidth = 6; context.strokeRect(42, 42, 996, 1266);
+  context.fillStyle = "#8b7bff"; context.font = "600 28px Space Grotesk"; context.fillText(`KUNDLI KOMBAT / ${result.code}`, 86, 115);
+  context.fillStyle = "#f5c443"; context.font = "400 124px Bebas Neue"; context.textAlign = "center"; context.fillText("COSMIC FACE-OFF", 540, 270);
+  context.fillStyle = "#ffffff"; context.font = "400 76px Bebas Neue"; context.fillText(`YOU  ${p1Wins} — ${p2Wins}  ${result.opponent.toUpperCase()}`, 540, 410);
+  context.fillStyle = "#ff5e8e"; context.font = "400 150px Bebas Neue"; context.fillText("♛", 540, 610);
+  context.fillStyle = "#f5c443"; context.font = "400 130px Bebas Neue"; context.fillText(winner, 540, 755);
+  context.fillStyle = "#ffffff"; context.font = "600 38px Space Grotesk"; context.fillText(`${result.verdictPct}% COSMIC COMPATIBILITY`, 540, 845);
+  context.font = "400 30px Space Grotesk";
+  const words = result.prediction.split(" "); let line = ""; let y = 965;
+  for (const word of words) {
+    const next = `${line}${word} `;
+    if (context.measureText(next).width > 820) { context.fillText(line.trim(), 540, y); line = `${word} `; y += 48; } else line = next;
+  }
+  context.fillText(line.trim(), 540, y);
+  context.fillStyle = "#77736b"; context.font = "400 24px Space Grotesk"; context.fillText("FOR REFLECTION AND FUN, NOT FATE.", 540, 1230);
+  return await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Image generation failed")), "image/png"));
 }
 
 function Brand() {
@@ -398,6 +427,7 @@ function BattleArena({ player }: { player: Player }) {
   const [playerStats, setPlayerStats] = useState<FighterStats | null>(null);
   const [roundIndex, setRoundIndex] = useState(0);
   const [roundPhase, setRoundPhase] = useState<"intro" | "scores" | "complete">("intro");
+  const [shareStatus, setShareStatus] = useState("");
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
@@ -439,6 +469,19 @@ function BattleArena({ player }: { player: Player }) {
     return score;
   }, [0, 0]);
   const roundIcons: Record<string, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
+  async function downloadCard() {
+    if (!result) return;
+    const url = URL.createObjectURL(await resultCardBlob(result));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `kundli-kombat-${result.code}.png`; anchor.click();
+    URL.revokeObjectURL(url); setShareStatus("Result card downloaded.");
+  }
+  async function shareCard() {
+    if (!result) return;
+    const file = new File([await resultCardBlob(result)], `kundli-kombat-${result.code}.png`, { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ title: "Kundli Kombat", text: result.prediction, files: [file] });
+    else { await navigator.clipboard.writeText(window.location.href); setShareStatus("Link copied—image sharing is not available in this browser."); }
+  }
+  async function copyLink() { await navigator.clipboard.writeText(window.location.href); setShareStatus("Battle link copied."); }
   return <section className="arena-page">
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
@@ -452,7 +495,7 @@ function BattleArena({ player }: { player: Player }) {
       <header><div><span>BATTLE / {result.code} · BEST OF 5</span><h2>YOU <b>{runningScore[0]}—{runningScore[1]}</b> {result.opponent}</h2></div><div className="verdict"><strong>{roundPhase === "complete" ? result.verdictPct : `${roundIndex + 1}/5`}</strong><span>{roundPhase === "complete" ? "COMPATIBILITY" : "ROUND"}</span></div></header>
       {roundPhase === "intro" && <motion.div className="round-intro" key={`intro-${roundIndex}`} initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }}><span>ROUND {roundIndex + 1}</span><strong>{roundIcons[result.rounds[roundIndex].name]} {result.rounds[roundIndex].name.toUpperCase()}</strong><small>THE ORACLE IS READING THE RING…</small></motion.div>}
       <div className="rounds battle-sequence">{revealedRounds.map((round, index) => <motion.article className={index === roundIndex ? "active-round" : ""} key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{roundIcons[round.name]} {round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p1Score}%` }} /></i><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
-      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p></motion.div>}
+      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p><div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy link</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}</motion.div>}
       {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
       {roundPhase === "complete" && <><footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer><button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button></>}
     </motion.div>}
