@@ -121,6 +121,8 @@ async def battle(request: BattleRequest) -> BattleResponse:
             "prediction": narration.prediction, "latencyMs": trace.latency_ms,
             "costUsd": cost.usd, "langfuseTraceId": trace.trace_id,
         }
+        if isinstance(args.get("p2Id"), str) and str(args["p2Id"]).startswith("local-"):
+            args.pop("p2Id")
         try:
             stored = await mutation("battles:create", {key: value for key, value in args.items() if value is not None})
             battle_id, card_id = str(stored["battleId"]), str(stored["cardId"])

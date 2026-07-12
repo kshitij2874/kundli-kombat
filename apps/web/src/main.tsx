@@ -36,6 +36,7 @@ type FighterStats = Record<"Love" | "Career" | "Luck" | "Fire" | "Chaos", number
 type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean; stats: FighterStats };
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
+type Challenge = { chart: Player["chart"]; id: string };
 
 type KkSpeechResult = { 0?: { transcript?: string } };
 type KkSpeechEvent = { results: { length: number; [index: number]: KkSpeechResult } };
@@ -207,6 +208,22 @@ async function resultCardBlob(result: BattleResult): Promise<Blob> {
   return await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Image generation failed")), "image/png"));
 }
 
+function challengeLink(player: Player) {
+  const payload: Challenge = { chart: player.chart, id: `local-${player.playerId}` };
+  const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(payload))));
+  return `${window.location.origin}${window.location.pathname}?challenge=${encodeURIComponent(encoded)}`;
+}
+
+function readChallenge(): Challenge | null {
+  const encoded = new URLSearchParams(window.location.search).get("challenge");
+  if (!encoded) return null;
+  try {
+    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+    const value = JSON.parse(new TextDecoder().decode(bytes)) as Challenge;
+    return value?.chart?.placements?.length ? value : null;
+  } catch { return null; }
+}
+
 function Brand() {
   return <a className="brand" href="#top" aria-label="Kundli Kombat home"><span>KK</span><strong>Kundli Kombat</strong></a>;
 }
@@ -223,7 +240,7 @@ function PlanetStage({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function Onboarding({ onReady }: { onReady: (player: Player) => void }) {
+function Onboarding({ onReady, challenged = false }: { onReady: (player: Player) => void; challenged?: boolean }) {
   const [stage, setStage] = useState<Stage>("details");
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
@@ -324,7 +341,7 @@ function Onboarding({ onReady }: { onReady: (player: Player) => void }) {
       <nav><Brand /><span className="step-chip">01 / Your coordinates</span></nav>
       <div className="onboarding-grid">
         <section>
-          <p className="eyebrow">Your chart. Zero jargon.</p>
+          <p className="eyebrow">{challenged ? "You’ve been challenged. Build your fighter." : "Your chart. Zero jargon."}</p>
           <h1>REWIND<br />YOUR <em>SKY.</em></h1>
           <p className="lede">Four details. Under a minute. Then meet the version of you the planets have been gossiping about.</p>
           <PlanetStage compact />
@@ -417,7 +434,7 @@ function Today({ player, onAsk }: { player: Player; onAsk: (voice?: boolean) => 
   </div>;
 }
 
-function BattleArena({ player }: { player: Player }) {
+function BattleArena({ player, challenge }: { player: Player; challenge?: Challenge | null }) {
   const [celebrities, setCelebrities] = useState<Celebrity[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [tone, setTone] = useState<"friendly" | "savage">("friendly");
@@ -428,22 +445,28 @@ function BattleArena({ player }: { player: Player }) {
   const [roundIndex, setRoundIndex] = useState(0);
   const [roundPhase, setRoundPhase] = useState<"intro" | "scores" | "complete">("intro");
   const [shareStatus, setShareStatus] = useState("");
+  const [challengeStats, setChallengeStats] = useState<FighterStats | null>(null);
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
     api<{ stats: FighterStats }>("/fighter-stats", { method: "POST", body: JSON.stringify({ chart: player.chart }) })
       .then((value) => setPlayerStats(value.stats)).catch(() => setError("Fighter stats are offline."));
+    if (challenge) api<{ stats: FighterStats }>("/fighter-stats", { method: "POST", body: JSON.stringify({ chart: challenge.chart }) })
+      .then((value) => setChallengeStats(value.stats)).catch(() => setError("Challenger stats are offline."));
   }, []);
-  const opponent = celebrities.find((item) => item.name === selected);
+  const opponent = challenge ? null : celebrities.find((item) => item.name === selected);
   const statIcons: Record<keyof FighterStats, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
   function fighterCard(name: string, stats: FighterStats, side: "p1" | "p2") {
     return <article className={`fighter-card ${side}`}><header><span>{side === "p1" ? "CHALLENGER" : "OPPONENT"}</span><h3>{name}</h3></header><div>{Object.entries(stats).map(([label, score]) => <div className="fighter-stat" key={label}><p><span>{statIcons[label as keyof FighterStats]} {label}</span><strong>{score}</strong></p><i><motion.b initial={{ width: 0 }} animate={{ width: `${score}%` }} /></i></div>)}</div></article>;
   }
   async function fight() {
-    if (!selected) return;
+    if (!selected && !challenge) return;
     setLoading(true); setResult(null); setError("");
     try {
-      const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify({ p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone }) });
+      const battleInput = challenge
+        ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: challenge.id, p2Chart: challenge.chart, tone }
+        : { p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone };
+      const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify(battleInput) });
       setResult(nextResult);
       setRoundIndex(0); setRoundPhase("intro");
     } catch { setError("The Arena lost the signal. Try the round again."); }
@@ -482,46 +505,48 @@ function BattleArena({ player }: { player: Player }) {
     else { await navigator.clipboard.writeText(window.location.href); setShareStatus("Link copied—image sharing is not available in this browser."); }
   }
   async function copyLink() { await navigator.clipboard.writeText(window.location.href); setShareStatus("Battle link copied."); }
+  async function copyChallenge() { await navigator.clipboard.writeText(challengeLink(player)); setShareStatus("Challenge copied. Send it to your next opponent."); }
   return <section className="arena-page">
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
-      <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>
-      {playerStats && opponent && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(opponent.name, opponent.stats, "p2")}</div></div>}
+      {!challenge && <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>}
+      {playerStats && (opponent || challengeStats) && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(challenge ? "CHALLENGER" : opponent!.name, challenge ? challengeStats! : opponent!.stats, "p2")}</div></div>}
       {error && <p className="form-error">{error}</p>}
-      <button className="primary-button fight-button" disabled={loading || !selected} onClick={fight}>{loading ? "Charts entering the ring…" : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>
+      <button className="primary-button fight-button" disabled={loading || (!selected && !challenge)} onClick={fight}>{loading ? "Charts entering the ring…" : challenge ? "Accept challenge" : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
     </>}
     {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
       <header><div><span>BATTLE / {result.code} · BEST OF 5</span><h2>YOU <b>{runningScore[0]}—{runningScore[1]}</b> {result.opponent}</h2></div><div className="verdict"><strong>{roundPhase === "complete" ? result.verdictPct : `${roundIndex + 1}/5`}</strong><span>{roundPhase === "complete" ? "COMPATIBILITY" : "ROUND"}</span></div></header>
       {roundPhase === "intro" && <motion.div className="round-intro" key={`intro-${roundIndex}`} initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }}><span>ROUND {roundIndex + 1}</span><strong>{roundIcons[result.rounds[roundIndex].name]} {result.rounds[roundIndex].name.toUpperCase()}</strong><small>THE ORACLE IS READING THE RING…</small></motion.div>}
       <div className="rounds battle-sequence">{revealedRounds.map((round, index) => <motion.article className={index === roundIndex ? "active-round" : ""} key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{roundIcons[round.name]} {round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p1Score}%` }} /></i><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
-      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p><div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy link</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}</motion.div>}
+      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p><div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy result</button><button onClick={copyChallenge}><Sparkles size={17} /> Challenge a friend</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}</motion.div>}
       {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
       {roundPhase === "complete" && <><footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer><button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button></>}
     </motion.div>}
   </section>;
 }
 
-function AppShell({ player }: { player: Player }) {
-  const [tab, setTab] = useState<Tab>("today");
+function AppShell({ player, challenge }: { player: Player; challenge?: Challenge | null }) {
+  const [tab, setTab] = useState<Tab>(challenge ? "battle" : "today");
   const [oracle, setOracle] = useState(false);
   const [oracleVoice, setOracleVoice] = useState(false);
   function openOracle(voice = false) { setOracleVoice(voice); setOracle(true); }
   return <main className="app-shell" id="top">
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
     {tab === "today" && <Today player={player} onAsk={openOracle} />}
-    {tab === "battle" && <BattleArena player={player} />}
+    {tab === "battle" && <BattleArena player={player} challenge={challenge} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
     <AnimatePresence>{oracle && <Oracle player={player} autoListen={oracleVoice} onClose={() => { setOracle(false); setOracleVoice(false); }} />}</AnimatePresence>
   </main>;
 }
 
 function App() {
+  const [challenge] = useState<Challenge | null>(() => readChallenge());
   const [player, setPlayer] = useState<Player | null>(() => {
     try { return JSON.parse(localStorage.getItem("kk-player") ?? "null") as Player | null; } catch { return null; }
   });
   function ready(value: Player) { localStorage.setItem("kk-player", JSON.stringify(value)); setPlayer(value); }
-  return player ? <AppShell player={player} /> : <Onboarding onReady={ready} />;
+  return player ? <AppShell player={player} challenge={challenge} /> : <Onboarding onReady={ready} challenged={Boolean(challenge)} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);
