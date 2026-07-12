@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -15,6 +15,7 @@ from .models import (
 )
 from .onboarding import onboard
 from .observability import flush_traces, langfuse_authenticated, traced_task
+from .voice import VoiceRequest, VoiceUnavailable, generate_voice
 
 
 @asynccontextmanager
@@ -57,6 +58,24 @@ def health() -> dict[str, object]:
 async def hermes_gateway(payload: dict[str, object]) -> JSONResponse:
     response, status = await process_hermes(payload)
     return JSONResponse(response, status_code=status)
+
+
+@app.post("/voice")
+async def voice(request: VoiceRequest) -> Response:
+    try:
+        audio, trace_id, exported = await generate_voice(request)
+    except VoiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Langfuse-Trace-Id": trace_id,
+            "X-Trace-Exported": str(exported).lower(),
+            "X-Voice-Provider": "ElevenLabs",
+        },
+    )
 
 
 @app.post("/onboard", response_model=OnboardResponse)

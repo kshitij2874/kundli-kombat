@@ -1,7 +1,7 @@
-import React, { FormEvent, PointerEvent, useEffect, useRef, useState } from "react";
+import React, { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronLeft, Mic, Search, Sparkles, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, LoaderCircle, Mic, Search, Sparkles, Square, Volume2, X } from "lucide-react";
 import "@fontsource/bebas-neue/400.css";
 import "@fontsource/space-grotesk/400.css";
 import "@fontsource/space-grotesk/600.css";
@@ -13,6 +13,9 @@ const FOOTER = "For reflection and fun, not fate.";
 type Tone = "comfort" | "straight" | "roast";
 type Tab = "today" | "battle" | "you";
 type Stage = "details" | "rewind" | "reveal" | "ready";
+type VoiceKind = "daily" | "battle" | "oracle";
+type VoiceState = "idle" | "loading" | "playing" | "error";
+type SpeechState = "idle" | "listening" | "error";
 
 type Place = {
   id: string; label: string; name: string; country: string; admin1?: string;
@@ -33,6 +36,28 @@ type Celebrity = { name: string; place: string; dob: string; big3: Record<string
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 
+type KkSpeechResult = { 0?: { transcript?: string } };
+type KkSpeechEvent = { results: { length: number; [index: number]: KkSpeechResult } };
+type KkSpeechError = { error?: string };
+type KkSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: KkSpeechEvent) => void) | null;
+  onerror: ((event: KkSpeechError) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+type KkSpeechRecognitionConstructor = new () => KkSpeechRecognition;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: KkSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: KkSpeechRecognitionConstructor;
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -40,6 +65,116 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) throw new Error(`Agency returned ${response.status}`);
   return response.json() as Promise<T>;
+}
+
+function useNarration() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const [state, setState] = useState<VoiceState>("idle");
+  const [error, setError] = useState("");
+
+  const stop = useCallback(() => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+    setState("idle");
+  }, []);
+
+  const speak = useCallback(async (text: string, kind: VoiceKind) => {
+    stop();
+    setError("");
+    setState("loading");
+    try {
+      const response = await fetch(`${API_URL}/voice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, kind }),
+      });
+      if (!response.ok) throw new Error(`Voice desk returned ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      objectUrlRef.current = objectUrl;
+      const audio = new Audio(objectUrl);
+      audioRef.current = audio;
+      audio.onplay = () => setState("playing");
+      audio.onended = stop;
+      audio.onerror = () => {
+        setError("The voice note could not play. Tap again to retry.");
+        setState("error");
+      };
+      await audio.play();
+    } catch {
+      setError("The ElevenLabs voice desk is briefly unavailable. Tap to retry.");
+      setState("error");
+    }
+  }, [stop]);
+
+  useEffect(() => stop, [stop]);
+  return { state, error, speak, stop };
+}
+
+function useSpeechInput(onTranscript: (text: string) => void) {
+  const recognitionRef = useRef<KkSpeechRecognition | null>(null);
+  const transcriptRef = useRef(onTranscript);
+  const [state, setState] = useState<SpeechState>("idle");
+  const [error, setError] = useState("");
+  transcriptRef.current = onTranscript;
+  const supported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const stop = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setState("idle");
+  }, []);
+
+  const start = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Voice input needs Chrome or another browser with speech recognition.");
+      setState("error");
+      return;
+    }
+    recognitionRef.current?.stop();
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-IN";
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        transcript += `${event.results[index][0]?.transcript ?? ""} `;
+      }
+      if (transcript.trim()) transcriptRef.current(transcript.trim());
+    };
+    recognition.onerror = (event) => {
+      const message = event.error === "not-allowed"
+        ? "Microphone permission was blocked. Allow it in the browser and retry."
+        : "I couldn’t hear that clearly. Tap the mic and try again.";
+      setError(message);
+      setState("error");
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setState((current) => current === "error" ? current : "idle");
+    };
+    setError("");
+    setState("listening");
+    recognitionRef.current = recognition;
+    try { recognition.start(); }
+    catch {
+      setError("The microphone is already busy. Wait a moment and retry.");
+      setState("error");
+    }
+  }, []);
+
+  useEffect(() => stop, [stop]);
+  return { supported, state, error, start, stop };
+}
+
+function battleNarration(result: BattleResult) {
+  const rounds = result.rounds.map((round) => `${round.name}. ${round.p1Score} to ${round.p2Score}. ${round.line}`).join(" ");
+  return `You versus ${result.opponent}. ${result.verdictPct} percent compatibility. ${rounds} Joint prediction. ${result.prediction}`;
 }
 
 function Brand() {
@@ -187,11 +322,20 @@ function Onboarding({ onReady }: { onReady: (player: Player) => void }) {
   );
 }
 
-function Oracle({ player, onClose }: { player: Player; onClose: () => void }) {
+function Oracle({ player, onClose, autoListen = false }: { player: Player; onClose: () => void; autoListen?: boolean }) {
   const [tone, setTone] = useState<Tone>("straight");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Reading | null>(null);
   const [loading, setLoading] = useState(false);
+  const autoStarted = useRef(false);
+  const narration = useNarration();
+  const speech = useSpeechInput((transcript) => setQuestion((current) => `${current} ${transcript}`.trim()));
+  useEffect(() => {
+    if (autoListen && !autoStarted.current) {
+      autoStarted.current = true;
+      speech.start();
+    }
+  }, [autoListen, speech]);
   async function ask(event: FormEvent) {
     event.preventDefault(); setLoading(true); setAnswer(null);
     try {
@@ -203,16 +347,30 @@ function Oracle({ player, onClose }: { player: Player; onClose: () => void }) {
       <motion.section className="oracle" initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} role="dialog" aria-modal="true" aria-labelledby="oracle-title">
         <header><div><span className="eyebrow">The office is listening</span><h2 id="oracle-title">ASK THE ORACLE</h2></div><button aria-label="Close Oracle" onClick={onClose}><X /></button></header>
         <div className="tone-dial" aria-label="Oracle tone">{(["comfort", "straight", "roast"] as Tone[]).map((item) => <button className={tone === item ? "active" : ""} onClick={() => setTone(item)} key={item}>{item}</button>)}</div>
-        <form onSubmit={ask}><textarea required value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What’s really on your mind?" /><button className="primary-button" disabled={loading}>{loading ? "The office is thinking…" : "Ask the office"}<ArrowRight size={18} /></button></form>
-        {answer && <motion.div className={`oracle-answer ${answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><span>{answer.refused ? "POLICY SENTINEL" : "INTERPRETER"}</span><p>{answer.text}</p>{answer.evidence.length > 0 && <div>{answer.evidence.map((item) => <small key={item.planet}>{item.planet} · {item.sign}</small>)}</div>}<footer>{answer.latencyMs}ms · ${answer.costUsd.toFixed(4)} · reviewed by Manager</footer></motion.div>}
+        <form onSubmit={ask}>
+          <div className="oracle-input">
+            <textarea required value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What’s really on your mind?" />
+            <button
+              type="button"
+              className={speech.state === "listening" ? "mic-control listening" : "mic-control"}
+              aria-label={speech.state === "listening" ? "Stop listening" : "Ask with microphone"}
+              onClick={speech.state === "listening" ? speech.stop : speech.start}
+              disabled={!speech.supported}
+            >{speech.state === "listening" ? <Square size={17} /> : <Mic size={19} />}</button>
+          </div>
+          <p className={`speech-status ${speech.state}`}>{speech.state === "listening" ? "Listening… speak your question" : speech.error}</p>
+          <button className="primary-button" disabled={loading}>{loading ? "The office is thinking…" : "Ask the office"}<ArrowRight size={18} /></button>
+        </form>
+        {answer && <motion.div className={`oracle-answer ${answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="answer-head"><span>{answer.refused ? "POLICY SENTINEL" : "INTERPRETER"}</span><button type="button" className="voice-control compact" aria-label="Play Oracle answer" onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(answer.text, "oracle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></div><p>{answer.text}</p>{answer.evidence.length > 0 && <div>{answer.evidence.map((item) => <small key={item.planet}>{item.planet} · {item.sign}</small>)}</div>}<footer>{answer.latencyMs}ms · ${answer.costUsd.toFixed(4)} · reviewed by Manager</footer>{narration.error && <small className="voice-error">{narration.error}</small>}</motion.div>}
       </motion.section>
     </motion.div>
   );
 }
 
-function Today({ player, onAsk }: { player: Player; onAsk: () => void }) {
+function Today({ player, onAsk }: { player: Player; onAsk: (voice?: boolean) => void }) {
   const [reading, setReading] = useState<Reading | null>(null);
   const [loading, setLoading] = useState(true);
+  const narration = useNarration();
   useEffect(() => {
     api<Reading>("/reading", { method: "POST", body: JSON.stringify({ playerId: player.playerId, kind: "daily", chart: player.chart, tone: "straight", lang: "en" }) })
       .then(setReading).finally(() => setLoading(false));
@@ -222,9 +380,9 @@ function Today({ player, onAsk }: { player: Player; onAsk: () => void }) {
     <div className="chart-ticker"><div>{[...ticker, ...ticker].map((item, i) => <span key={`${item.planet}-${i}`}>{item.planet.toUpperCase()} {Math.round(item.degree)}° {item.sign.toUpperCase()} <b>✦</b></span>)}</div></div>
     <section className="today-hero">
       <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · Lahiri sidereal · evidence checked</p></div>
-      <div className="weather-card"><header><span>INTERPRETER BRIEF</span><button aria-label="Play cosmic weather"><Volume2 size={18} /></button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><div className="evidence-row">{reading?.evidence.map((item) => <span key={item.planet}>{item.planet} / {item.sign}</span>)}</div><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer></>}</div>
+      <div className="weather-card"><header><span>INTERPRETER BRIEF</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><div className="evidence-row">{reading?.evidence.map((item) => <span key={item.planet}>{item.planet} / {item.sign}</span>)}</div><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>
     </section>
-    <button className="ask-bar" onClick={onAsk}><span><Sparkles size={18} /> Ask the office anything…</span><i><Mic size={18} /></i></button>
+    <div className="ask-bar"><button type="button" className="ask-main" onClick={() => onAsk(false)}><Sparkles size={18} /> Ask the office anything…</button><button type="button" className="ask-mic" aria-label="Ask the Oracle with microphone" onClick={() => onAsk(true)}><Mic size={18} /></button></div>
     <section className="identity-strip"><div><span>YOUR BIG THREE</span><strong>{player.big3.sun} / {player.big3.moon} / {player.big3.rising}</strong></div><div><span>MOON MANSION</span><strong>{player.nakshatra}</strong></div><div className="mint"><span>NEXT MOVE</span><strong>Battle a celebrity →</strong></div></section>
   </div>;
 }
@@ -236,6 +394,7 @@ function BattleArena({ player }: { player: Player }) {
   const [result, setResult] = useState<BattleResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
   }, []);
@@ -243,7 +402,9 @@ function BattleArena({ player }: { player: Player }) {
     if (!selected) return;
     setLoading(true); setResult(null); setError("");
     try {
-      setResult(await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify({ p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone }) }));
+      const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify({ p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone }) });
+      setResult(nextResult);
+      void narration.speak(battleNarration(nextResult), "battle");
     } catch { setError("The Arena lost the signal. Try the round again."); }
     finally { setLoading(false); }
   }
@@ -256,11 +417,12 @@ function BattleArena({ player }: { player: Player }) {
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
     </>}
     {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-      <header><div><span>BATTLE / {result.code}</span><h2>YOU <b>VS</b> {result.opponent}</h2></div><div className="verdict"><strong>{result.verdictPct}%</strong><span>COMPATIBILITY</span></div></header>
+      <header><div><span>BATTLE / {result.code}</span><h2>YOU <b>VS</b> {result.opponent}</h2></div><div className="score-actions"><button type="button" className="voice-control battle-voice" aria-label={narration.state === "playing" ? "Stop battle narration" : "Play battle narration"} onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(battleNarration(result), "battle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={19} />}</button><div className="verdict"><strong>{result.verdictPct}%</strong><span>COMPATIBILITY</span></div></div></header>
       <div className="rounds">{result.rounds.map((round, index) => <motion.article key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .15 * index }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><b style={{ width: `${round.p1Score}%` }} /></i><i><b style={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
       <div className="prediction"><span>JOINT PREDICTION</span><p>“{result.prediction}”</p></div>
+      {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
       <footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer>
-      <button className="primary-button" onClick={() => setResult(null)}>Rematch with house rules <ArrowRight size={18} /></button>
+      <button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button>
     </motion.div>}
   </section>;
 }
@@ -268,12 +430,14 @@ function BattleArena({ player }: { player: Player }) {
 function AppShell({ player }: { player: Player }) {
   const [tab, setTab] = useState<Tab>("today");
   const [oracle, setOracle] = useState(false);
+  const [oracleVoice, setOracleVoice] = useState(false);
+  function openOracle(voice = false) { setOracleVoice(voice); setOracle(true); }
   return <main className="app-shell" id="top">
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
-    {tab === "today" && <Today player={player} onAsk={() => setOracle(true)} />}
+    {tab === "today" && <Today player={player} onAsk={openOracle} />}
     {tab === "battle" && <BattleArena player={player} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
-    <AnimatePresence>{oracle && <Oracle player={player} onClose={() => setOracle(false)} />}</AnimatePresence>
+    <AnimatePresence>{oracle && <Oracle player={player} autoListen={oracleVoice} onClose={() => { setOracle(false); setOracleVoice(false); }} />}</AnimatePresence>
   </main>;
 }
 
