@@ -86,6 +86,7 @@ def _manager_plan(request: ReadingRequest) -> tuple[ManagerPlan, UsageCost]:
                     "placement": request.placement,
                     "currentDate": date.today().isoformat(),
                     "chartSupplied": True,
+                    "recentConversation": [turn.model_dump() for turn in request.history],
                 }),
                 text_format=ManagerPlan,
                 reasoning={"effort": "low"},
@@ -139,6 +140,7 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
         "currentDate": date.today().isoformat(),
         "managerPlan": plan.steps,
         "placements": placements,
+        "recentConversation": [turn.model_dump() for turn in request.history],
     }
     with agent_step("interpreter.read", {"task": request.kind, "model": settings.openai_sol_model}) as step:
         try:
@@ -149,6 +151,8 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
                     "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
                     "Tone may be comfort, straight, or playful roast; never insult the real person. "
                     "Write 2-4 short sentences and do not add a disclaimer."
+                    " When recentConversation is supplied, answer the current question as a follow-up: "
+                    "use only relevant prior context, do not repeat it mechanically, and never mix users."
                     " For a daily task, the supplied chart and currentDate are sufficient: always provide "
                     "a useful reflection and never ask the user for another date, time, or location."
                 ),

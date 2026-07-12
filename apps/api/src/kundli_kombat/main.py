@@ -13,7 +13,7 @@ from .hermes import process_hermes
 from .models import (
     BattleRequest, BattleResponse, CelebritySummary, CelebrityVerifyRequest, ChartPreviewResponse,
     FighterStatsRequest, FighterStatsResponse,
-    OnboardRequest, OnboardResponse, VerifiedCelebrity,
+    ConversationTurn, OnboardRequest, OnboardResponse, VerifiedCelebrity,
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
@@ -21,6 +21,7 @@ from .ephemeris import calculate_chart
 from .observability import flush_traces, langfuse_authenticated, traced_task
 from .voice import VoiceRequest, VoiceUnavailable, generate_voice
 from .linkup import LinkupUnavailable, verify_celebrity
+from .convex_client import ConvexUnavailable, query
 
 
 @asynccontextmanager
@@ -96,6 +97,15 @@ async def reading(request: ReadingRequest) -> ReadingResponse:
 @app.post("/oracle", response_model=ReadingResponse)
 async def oracle(request: ReadingRequest) -> ReadingResponse:
     request.kind = "oracle"
+    if not request.playerId.startswith("local-"):
+        try:
+            rows = await query("readings:recentOracle", {"playerId": request.playerId, "limit": 6})
+            request.history = [
+                ConversationTurn(question=str(row["question"]), answer=str(row["text"]))
+                for row in rows if isinstance(row, dict) and row.get("question") and row.get("text")
+            ]
+        except ConvexUnavailable:
+            request.history = []
     return await create_reading(request)
 
 

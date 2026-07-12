@@ -381,7 +381,7 @@ function Onboarding({ onReady, challenged = false }: { onReady: (player: Player)
 function Oracle({ player, onClose, autoListen = false }: { player: Player; onClose: () => void; autoListen?: boolean }) {
   const [tone, setTone] = useState<Tone>("straight");
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<Reading | null>(null);
+  const [messages, setMessages] = useState<Array<{ question: string; answer: Reading }>>([]);
   const [loading, setLoading] = useState(false);
   const autoStarted = useRef(false);
   const narration = useNarration();
@@ -393,9 +393,12 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
     }
   }, [autoListen, speech]);
   async function ask(event: FormEvent) {
-    event.preventDefault(); setLoading(true); setAnswer(null);
+    event.preventDefault(); setLoading(true);
+    const submittedQuestion = question.trim();
     try {
-      setAnswer(await api<Reading>("/oracle", { method: "POST", body: JSON.stringify({ playerId: player.playerId, kind: "oracle", chart: player.chart, question, tone, lang: "en" }) }));
+      const answer = await api<Reading>("/oracle", { method: "POST", body: JSON.stringify({ playerId: player.playerId, kind: "oracle", chart: player.chart, question: submittedQuestion, tone, lang: "en" }) });
+      setMessages((current) => [...current, { question: submittedQuestion, answer }]);
+      setQuestion("");
     } finally { setLoading(false); }
   }
   return (
@@ -403,9 +406,10 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
       <motion.section className="oracle" initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} role="dialog" aria-modal="true" aria-labelledby="oracle-title">
         <header><div><span className="eyebrow">The office is listening</span><h2 id="oracle-title">ASK THE ORACLE</h2></div><button aria-label="Close Oracle" onClick={onClose}><X /></button></header>
         <div className="tone-dial" aria-label="Oracle tone">{(["comfort", "straight", "roast"] as Tone[]).map((item) => <button className={tone === item ? "active" : ""} onClick={() => setTone(item)} key={item}>{item}</button>)}</div>
+        {messages.length > 0 && <div className="oracle-thread">{messages.map((message, index) => <div className="oracle-turn" key={`${message.question}-${index}`}><div className="user-bubble"><span>YOU</span><p>{message.question}</p></div><motion.div className={`oracle-answer ${message.answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="answer-head"><span>{message.answer.refused ? "POLICY SENTINEL" : `INTERPRETER · TURN ${index + 1}`}</span><button type="button" className="voice-control compact" aria-label="Play Oracle answer" onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(message.answer.text, "oracle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></div><p>{message.answer.text}</p>{message.answer.evidence.length > 0 && <div>{message.answer.evidence.map((item) => <small key={item.planet}>{item.planet} · {item.sign}</small>)}</div>}<footer>{message.answer.latencyMs}ms · ${message.answer.costUsd.toFixed(4)} · memory + Manager reviewed</footer></motion.div></div>)}</div>}
         <form onSubmit={ask}>
           <div className="oracle-input">
-            <textarea required value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What’s really on your mind?" />
+            <textarea required value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={messages.length ? "Ask a follow-up… I remember this conversation." : "What’s really on your mind?"} />
             <button
               type="button"
               className={speech.state === "listening" ? "mic-control listening" : "mic-control"}
@@ -415,9 +419,9 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
             >{speech.state === "listening" ? <Square size={17} /> : <Mic size={19} />}</button>
           </div>
           <p className={`speech-status ${speech.state}`}>{speech.state === "listening" ? "Listening… speak your question" : speech.error}</p>
-          <button className="primary-button" disabled={loading}>{loading ? "The office is thinking…" : "Ask the office"}<ArrowRight size={18} /></button>
+          <button className="primary-button" disabled={loading}>{loading ? "The office is thinking…" : messages.length ? "Ask follow-up" : "Ask the office"}<ArrowRight size={18} /></button>
         </form>
-        {answer && <motion.div className={`oracle-answer ${answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="answer-head"><span>{answer.refused ? "POLICY SENTINEL" : "INTERPRETER"}</span><button type="button" className="voice-control compact" aria-label="Play Oracle answer" onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(answer.text, "oracle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></div><p>{answer.text}</p>{answer.evidence.length > 0 && <div>{answer.evidence.map((item) => <small key={item.planet}>{item.planet} · {item.sign}</small>)}</div>}<footer>{answer.latencyMs}ms · ${answer.costUsd.toFixed(4)} · reviewed by Manager</footer>{narration.error && <small className="voice-error">{narration.error}</small>}</motion.div>}
+        {narration.error && <small className="voice-error">{narration.error}</small>}
       </motion.section>
     </motion.div>
   );

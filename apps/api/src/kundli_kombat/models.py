@@ -40,6 +40,11 @@ class Evidence(BaseModel):
     longitude: float
 
 
+class ConversationTurn(BaseModel):
+    question: str = Field(min_length=1, max_length=800)
+    answer: str = Field(min_length=1, max_length=2000)
+
+
 class OnboardResponse(BaseModel):
     playerId: str
     chart: dict[str, object]
@@ -65,6 +70,7 @@ class ReadingRequest(BaseModel):
     placement: str | None = Field(default=None, max_length=40)
     tone: Tone = "straight"
     lang: Language = "en"
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=6)
 
 
 class ReadingResponse(BaseModel):

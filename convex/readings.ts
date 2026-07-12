@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const tone = v.union(v.literal("comfort"), v.literal("straight"), v.literal("roast"));
@@ -14,3 +14,14 @@ export const create = mutation({
   handler: (ctx, args) => ctx.db.insert("readings", { ...args, createdAt: Date.now() }),
 });
 
+export const recentOracle = query({
+  args: { playerId: v.id("players"), limit: v.optional(v.number()) },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("readings")
+      .withIndex("by_player", (q) => q.eq("playerId", args.playerId))
+      .order("desc")
+      .take(Math.min(args.limit ?? 6, 10));
+    return rows.filter((row) => row.kind === "oracle" && row.question).reverse();
+  },
+});
