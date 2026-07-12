@@ -414,7 +414,7 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
   );
 }
 
-function Today({ player, onAsk }: { player: Player; onAsk: (voice?: boolean) => void }) {
+function Today({ player, onAsk, onBattle }: { player: Player; onAsk: (voice?: boolean) => void; onBattle: () => void }) {
   const [reading, setReading] = useState<Reading | null>(null);
   const [loading, setLoading] = useState(true);
   const narration = useNarration();
@@ -430,7 +430,7 @@ function Today({ player, onAsk }: { player: Player; onAsk: (voice?: boolean) => 
       <div className="weather-card"><header><span>INTERPRETER BRIEF</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><div className="evidence-row">{reading?.evidence.map((item) => <span key={item.planet}>{item.planet} / {item.sign}</span>)}</div><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>
     </section>
     <div className="ask-bar"><button type="button" className="ask-main" onClick={() => onAsk(false)}><Sparkles size={18} /> Ask the office anything…</button><button type="button" className="ask-mic" aria-label="Ask the Oracle with microphone" onClick={() => onAsk(true)}><Mic size={18} /></button></div>
-    <section className="identity-strip"><div><span>YOUR BIG THREE</span><strong>{player.big3.sun} / {player.big3.moon} / {player.big3.rising}</strong></div><div><span>MOON MANSION</span><strong>{player.nakshatra}</strong></div><div className="mint"><span>NEXT MOVE</span><strong>Battle a celebrity →</strong></div></section>
+    <section className="identity-strip"><div><span>YOUR BIG THREE</span><strong>{player.big3.sun} / {player.big3.moon} / {player.big3.rising}</strong></div><div><span>MOON MANSION</span><strong>{player.nakshatra}</strong></div><button type="button" className="mint" onClick={onBattle}><span>NEXT MOVE</span><strong>Battle a celebrity →</strong></button></section>
   </div>;
 }
 
@@ -533,7 +533,7 @@ function AppShell({ player, challenge }: { player: Player; challenge?: Challenge
   function openOracle(voice = false) { setOracleVoice(voice); setOracle(true); }
   return <main className="app-shell" id="top">
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
-    {tab === "today" && <Today player={player} onAsk={openOracle} />}
+    {tab === "today" && <Today player={player} onAsk={openOracle} onBattle={() => setTab("battle")} />}
     {tab === "battle" && <BattleArena player={player} challenge={challenge} />}
     {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
     <AnimatePresence>{oracle && <Oracle player={player} autoListen={oracleVoice} onClose={() => { setOracle(false); setOracleVoice(false); }} />}</AnimatePresence>
