@@ -40,7 +40,6 @@ async def onboard(request: OnboardRequest) -> OnboardResponse:
         player_args = {
             "name": request.name,
             "dob": request.dob.isoformat(),
-            "tob": request.tob.isoformat(timespec="minutes") if request.tob else None,
             "tobUnknown": request.tobUnknown,
             "place": request.place,
             "lat": request.lat,
@@ -53,6 +52,8 @@ async def onboard(request: OnboardRequest) -> OnboardResponse:
             "lang": request.lang,
             "source": request.source,
         }
+        if request.tob:
+            player_args["tob"] = request.tob.isoformat(timespec="minutes")
         try:
             player_id = str(await mutation("players:create", player_args))
         except ConvexUnavailable:
@@ -75,4 +76,3 @@ async def onboard(request: OnboardRequest) -> OnboardResponse:
         )
     response.latencyMs = trace.latency_ms
     return response
-

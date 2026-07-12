@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .models import OnboardRequest, OnboardResponse
+from .agency import create_reading
+from .models import OnboardRequest, OnboardResponse, ReadingRequest, ReadingResponse
 from .onboarding import onboard
 from .observability import flush_traces, traced_task
 
@@ -35,6 +36,8 @@ def health() -> dict[str, object]:
             "version": app.version,
             "traceId": trace.trace_id,
             "traceExported": trace.exported,
+            "agencyConfigured": settings.agency_configured,
+            "convexConfigured": settings.convex_url is not None,
         }
     response["latencyMs"] = trace.latency_ms
     return response
@@ -44,3 +47,13 @@ def health() -> dict[str, object]:
 async def create_player(request: OnboardRequest) -> OnboardResponse:
     return await onboard(request)
 
+
+@app.post("/reading", response_model=ReadingResponse)
+async def reading(request: ReadingRequest) -> ReadingResponse:
+    return await create_reading(request)
+
+
+@app.post("/oracle", response_model=ReadingResponse)
+async def oracle(request: ReadingRequest) -> ReadingResponse:
+    request.kind = "oracle"
+    return await create_reading(request)

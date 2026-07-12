@@ -53,3 +53,30 @@ class OnboardResponse(BaseModel):
     traceExported: bool
     latencyMs: int
 
+
+ReadingKind = Literal["identity", "daily", "placement", "oracle", "deep"]
+
+
+class ReadingRequest(BaseModel):
+    playerId: str = Field(min_length=1, max_length=100)
+    kind: ReadingKind
+    chart: dict[str, object]
+    question: str | None = Field(default=None, max_length=800)
+    placement: str | None = Field(default=None, max_length=40)
+    tone: Tone = "straight"
+    lang: Language = "en"
+
+
+class ReadingResponse(BaseModel):
+    readingId: str
+    kind: ReadingKind
+    text: str
+    evidence: list[Evidence]
+    refused: bool
+    policy: Literal["doom", "medical", "financial", "abuse", "under13"] | None
+    plan: list[str]
+    traceId: str
+    traceExported: bool
+    latencyMs: int
+    costUsd: float
+

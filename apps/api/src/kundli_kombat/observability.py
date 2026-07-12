@@ -53,3 +53,19 @@ def flush_traces() -> None:
     if get_settings().langfuse_configured:
         get_client().flush()
 
+
+@contextmanager
+def agent_step(name: str, metadata: dict[str, object] | None = None) -> Iterator[None]:
+    if not get_settings().langfuse_configured:
+        yield
+        return
+    langfuse = get_client()
+    with langfuse.start_as_current_observation(
+        as_type="span", name=name, metadata=metadata or {},
+    ) as span:
+        try:
+            yield
+            span.update(output={"ok": True})
+        except Exception as exc:
+            span.update(level="ERROR", status_message=str(exc), output={"ok": False})
+            raise
