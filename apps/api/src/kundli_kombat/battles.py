@@ -67,7 +67,7 @@ def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[Refer
     fallback = _fallback_referee(rounds, opponent, tone)
     if not settings.agency_configured or not langfuse_authenticated():
         return fallback, UsageCost()
-    with agent_step("referee.narrate", {"model": settings.openai_sol_model, "opponent": opponent}):
+    with agent_step("referee.narrate", {"task": "battle", "model": settings.openai_sol_model, "opponent": opponent}) as step:
         response = _openai_client().responses.parse(
             model=settings.openai_sol_model,
             instructions=(
@@ -83,7 +83,9 @@ def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[Refer
             reasoning={"effort": "low"},
             max_output_tokens=600,
         )
-    return response.output_parsed or fallback, _cost(response, settings.openai_sol_model)
+        cost = _cost(response, settings.openai_sol_model)
+        step.cost_usd = cost.usd
+    return response.output_parsed or fallback, cost
 
 
 async def battle(request: BattleRequest) -> BattleResponse:

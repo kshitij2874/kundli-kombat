@@ -69,7 +69,7 @@ def _manager_plan(request: ReadingRequest) -> tuple[ManagerPlan, UsageCost]:
     settings = get_settings()
     if not settings.agency_configured or not langfuse_authenticated():
         return _fallback_plan(request), UsageCost()
-    with agent_step("manager.plan", {"task": request.kind, "model": settings.openai_sol_model}):
+    with agent_step("manager.plan", {"task": request.kind, "model": settings.openai_sol_model}) as step:
         try:
             response = _openai_client().responses.parse(
                 model=settings.openai_sol_model,
@@ -94,7 +94,9 @@ def _manager_plan(request: ReadingRequest) -> tuple[ManagerPlan, UsageCost]:
             )
         except ValidationError:
             return _fallback_plan(request), UsageCost()
-    return response.output_parsed or _fallback_plan(request), _cost(response, settings.openai_sol_model)
+        cost = _cost(response, settings.openai_sol_model)
+        step.cost_usd = cost.usd
+    return response.output_parsed or _fallback_plan(request), cost
 
 
 def _placements(request: ReadingRequest) -> list[dict[str, object]]:
@@ -138,7 +140,7 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
         "managerPlan": plan.steps,
         "placements": placements,
     }
-    with agent_step("interpreter.read", {"task": request.kind, "model": settings.openai_sol_model}):
+    with agent_step("interpreter.read", {"task": request.kind, "model": settings.openai_sol_model}) as step:
         try:
             response = _openai_client().responses.parse(
                 model=settings.openai_sol_model,
@@ -158,7 +160,9 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
             )
         except ValidationError:
             return _fallback_draft(request, placements), UsageCost()
-    return response.output_parsed or _fallback_draft(request, placements), _cost(response, settings.openai_sol_model)
+        cost = _cost(response, settings.openai_sol_model)
+        step.cost_usd = cost.usd
+    return response.output_parsed or _fallback_draft(request, placements), cost
 
 
 def _review(request: ReadingRequest, draft: InterpreterDraft) -> tuple[str, list[Evidence], bool]:

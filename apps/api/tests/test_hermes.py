@@ -139,3 +139,83 @@ def test_hermes_oracle_maps_safety_policy(monkeypatch: Any) -> None:
     payload = response.json()
     assert payload["safety"] == {"refused": True, "policy": "death"}
     assert payload["data"]["evidence"] == []
+
+
+def test_memory_isolation_01(monkeypatch: Any) -> None:
+    """Player A's Telegram oracle request must never receive player B's chart."""
+    charts = {
+        "telegram-a": {
+            "placements": [
+                {"planet": "Sun", "sign": "Aries", "longitude": 12.0},
+                {"planet": "Moon", "sign": "Taurus", "longitude": 44.0},
+            ]
+        },
+        "telegram-b": {
+            "placements": [
+                {"planet": "Sun", "sign": "Scorpio", "longitude": 222.0},
+                {"planet": "Moon", "sign": "Aquarius", "longitude": 314.0},
+            ]
+        },
+    }
+    players = {"telegram-a": "player-a", "telegram-b": "player-b"}
+    captured: dict[str, Any] = {}
+
+    async def identity_query(path: str, args: dict[str, Any]) -> Any:
+        if path == "hermes:getRequest":
+            return None
+        assert path == "hermes:getIdentity"
+        user_id = args["userId"]
+        return {
+            "playerId": players[user_id],
+            "player": {"chart": charts[user_id]},
+        }
+
+    async def chart_bound_reading(request: Any) -> ReadingResponse:
+        captured["request"] = request
+        placement = request.chart["placements"][0]
+        return ReadingResponse(
+            readingId="reading-a",
+            kind="oracle",
+            text="Use your own chart signal today. for reflection and fun, not fate.",
+            evidence=[Evidence(**placement)],
+            refused=False,
+            policy=None,
+            plan=["Resolve identity", "Read stored chart"],
+            traceId="trace-isolation",
+            traceExported=True,
+            latencyMs=2,
+            costUsd=0,
+        )
+
+    monkeypatch.setattr("kundli_kombat.hermes.query", identity_query)
+    monkeypatch.setattr("kundli_kombat.hermes.mutation", _mutation)
+    monkeypatch.setattr("kundli_kombat.hermes.create_reading", chart_bound_reading)
+    response = TestClient(app).post(
+        "/hermes",
+        json={
+            **BASE_REQUEST,
+            "requestId": "b4bddaaa-01b9-49a8-9dfc-889da35b7d24",
+            "identity": {
+                "channel": "telegram",
+                "chatId": "chat-a",
+                "userId": "telegram-a",
+                "threadId": None,
+            },
+            "action": "oracle",
+            "input": {
+                "question": "What should I focus on?",
+                "tone": "straight",
+                "language": "en",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["playerId"] == "player-a"
+    assert captured["request"].playerId == "player-a"
+    assert captured["request"].chart == charts["telegram-a"]
+    assert {(item["planet"], item["sign"]) for item in payload["data"]["evidence"]} <= {
+        (item["planet"], item["sign"]) for item in charts["telegram-a"]["placements"]
+    }
+    assert not ({item["sign"] for item in payload["data"]["evidence"]} & {"Scorpio", "Aquarius"})

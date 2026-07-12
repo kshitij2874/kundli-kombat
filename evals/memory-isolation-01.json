@@ -1,0 +1,13 @@
+{
+  "id": "memory-isolation-01",
+  "description": "A Telegram oracle request resolves memory from its Telegram user id and cites only that player's chart.",
+  "actors": ["player-a", "player-b"],
+  "action": "oracle",
+  "assertions": [
+    "resolved playerId is player-a",
+    "the reading request receives player-a's stored chart",
+    "all returned evidence belongs to player-a's chart",
+    "no player-b-only placement is cited"
+  ],
+  "executableTest": "apps/api/tests/test_hermes.py::test_memory_isolation_01"
+}
