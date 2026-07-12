@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
+from .battle_stats import STAT_RULES, fighter_stats
 
-ROUND_WEIGHTS = {"Communication": 0.35, "Chaos": 0.30, "Loyalty": 0.35}
+
+ROUND_WEIGHTS = {"Love": 0.20, "Career": 0.20, "Luck": 0.20, "Fire": 0.20, "Chaos": 0.20}
 ASPECTS = {
     "conjunction": (0, 14),
     "sextile": (60, 9),
@@ -108,11 +110,26 @@ def _round(name: str, p1: dict[str, dict[str, object]], p2: dict[str, dict[str, 
 
 
 def score_battle(p1_chart: dict[str, object], p2_chart: dict[str, object]) -> tuple[list[ScoredRound], int, str]:
-    p1, p2 = _placement_map(p1_chart), _placement_map(p2_chart)
-    rounds = [_round(name, p1, p2) for name in ("Communication", "Chaos", "Loyalty")]
+    p1_stats, p2_stats = fighter_stats(p1_chart), fighter_stats(p2_chart)
+    p1_placements, p2_placements = _placement_map(p1_chart), _placement_map(p2_chart)
+    rounds = []
+    for name, rule in STAT_RULES.items():
+        p1_score, p2_score = p1_stats[name], p2_stats[name]
+        planets = [planet for planet, _ in rule.planets]
+        evidence = tuple(
+            f"{planet}: {p1_placements[planet].get('sign', '?')} vs {p2_placements[planet].get('sign', '?')}"
+            for planet in planets
+            if planet in p1_placements and planet in p2_placements
+        )
+        rounds.append(ScoredRound(
+            name=name,
+            p1_score=p1_score,
+            p2_score=p2_score,
+            compatibility_score=100 - abs(p1_score - p2_score),
+            aspects=evidence,
+        ))
     verdict = round(sum(item.compatibility_score * ROUND_WEIGHTS[item.name] for item in rounds))
-    p1_total = sum(item.p1_score for item in rounds)
-    p2_total = sum(item.p2_score for item in rounds)
-    winner = "tie" if p1_total == p2_total else "p1" if p1_total > p2_total else "p2"
+    p1_wins = sum(item.p1_score > item.p2_score for item in rounds)
+    p2_wins = sum(item.p2_score > item.p1_score for item in rounds)
+    winner = "tie" if p1_wins == p2_wins else "p1" if p1_wins > p2_wins else "p2"
     return rounds, verdict, winner
-

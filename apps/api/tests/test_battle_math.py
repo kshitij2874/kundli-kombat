@@ -18,10 +18,9 @@ def test_same_pair_produces_identical_round_scores() -> None:
         assert score_battle(p1, p2) == first
 
 
-def test_battle_has_three_plain_language_rounds_and_weighted_verdict() -> None:
+def test_battle_has_five_stat_rounds_and_weighted_verdict() -> None:
     rounds, verdict, winner = score_battle(_chart(date(1995, 4, 14)), _chart(date(1989, 12, 13)))
-    assert [item.name for item in rounds] == ["Communication", "Chaos", "Loyalty"]
+    assert [item.name for item in rounds] == ["Love", "Career", "Luck", "Fire", "Chaos"]
     assert 0 <= verdict <= 100
     assert winner in {"p1", "p2", "tie"}
     assert all(0 <= item.p1_score <= 100 and 0 <= item.p2_score <= 100 for item in rounds)
-

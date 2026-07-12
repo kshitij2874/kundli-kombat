@@ -20,7 +20,7 @@ DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "celebrities.json"
 
 
 class RefereeDraft(BaseModel):
-    lines: list[str] = Field(min_length=3, max_length=3)
+    lines: list[str] = Field(min_length=5, max_length=5)
     prediction: str = Field(min_length=10, max_length=180)
 
 
@@ -52,13 +52,17 @@ def list_celebrities() -> list[CelebritySummary]:
 
 
 def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> RefereeDraft:
-    templates = {
-        "Communication": "The reply speed is electric; the listening skills have entered airplane mode.",
-        "Chaos": "One tiny plan becomes a group project with the universe.",
-        "Loyalty": "The charts may argue, but neither one leaves the group chat.",
-    }
-    lines = [templates[item.name] for item in rounds]
-    prediction = f"You and {opponent} should never plan a trip without a backup plan and snacks."
+    icons = {"Love": "❤️", "Career": "💼", "Luck": "🍀", "Fire": "🔥", "Chaos": "🌀"}
+    lines = []
+    for item in rounds:
+        if item.p1_score == item.p2_score:
+            result = "Dead even—the cosmos refuses to pick a side."
+        elif item.p1_score > item.p2_score:
+            result = f"You take it {item.p1_score} to {item.p2_score}. Cosmic flex confirmed."
+        else:
+            result = f"{opponent} takes it {item.p2_score} to {item.p1_score}. That one left a crater."
+        lines.append(f"{icons[item.name]} {result}")
+    prediction = f"Five rounds down: you and {opponent} just gave the cosmos a proper main event."
     if tone == "savage":
         prediction = f"You and {opponent} could turn choosing a restaurant into a three-act cosmic trial."
     return RefereeDraft(lines=lines, prediction=prediction)
@@ -73,9 +77,10 @@ def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[Refer
         response = _openai_client().responses.parse(
             model=settings.openai_sol_model,
             instructions=(
-                "You are the Match Referee. Narrate exactly three supplied deterministic rounds in order: Communication, Chaos, Loyalty. "
+                "You are the Oracle Commentator. Narrate exactly five supplied deterministic rounds in order: Love, Career, Luck, Fire, Chaos. "
                 "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
-                "Each line is one playful sentence in plain language. End with one harmless joint prediction."
+                "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
+                "End with one harmless one-line cosmic verdict."
             ),
             input=json.dumps({
                 "opponent": opponent, "tone": tone,

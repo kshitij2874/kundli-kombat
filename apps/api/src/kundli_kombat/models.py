@@ -120,7 +120,7 @@ class FighterStatsResponse(BaseModel):
 
 
 class BattleRound(BaseModel):
-    name: Literal["Communication", "Chaos", "Loyalty"]
+    name: Literal["Love", "Career", "Luck", "Fire", "Chaos"]
     p1Score: int = Field(ge=0, le=100)
     p2Score: int = Field(ge=0, le=100)
     compatibilityScore: int = Field(ge=0, le=100)

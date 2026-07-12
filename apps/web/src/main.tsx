@@ -396,6 +396,8 @@ function BattleArena({ player }: { player: Player }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [playerStats, setPlayerStats] = useState<FighterStats | null>(null);
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [roundPhase, setRoundPhase] = useState<"intro" | "scores" | "complete">("intro");
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
@@ -413,10 +415,30 @@ function BattleArena({ player }: { player: Player }) {
     try {
       const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify({ p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone }) });
       setResult(nextResult);
-      void narration.speak(battleNarration(nextResult), "battle");
+      setRoundIndex(0); setRoundPhase("intro");
     } catch { setError("The Arena lost the signal. Try the round again."); }
     finally { setLoading(false); }
   }
+  useEffect(() => {
+    if (!result || roundPhase === "complete") return;
+    if (roundPhase === "intro") {
+      const timer = window.setTimeout(() => setRoundPhase("scores"), 1100);
+      return () => window.clearTimeout(timer);
+    }
+    void narration.speak(result.rounds[roundIndex].line, "battle");
+    const timer = window.setTimeout(() => {
+      if (roundIndex === result.rounds.length - 1) setRoundPhase("complete");
+      else { setRoundIndex((value) => value + 1); setRoundPhase("intro"); }
+    }, 4200);
+    return () => window.clearTimeout(timer);
+  }, [result, roundIndex, roundPhase]);
+  const revealedRounds = result ? result.rounds.slice(0, roundIndex + (roundPhase === "intro" ? 0 : 1)) : [];
+  const runningScore = revealedRounds.reduce((score, round) => {
+    if (round.p1Score > round.p2Score) score[0] += 1;
+    if (round.p2Score > round.p1Score) score[1] += 1;
+    return score;
+  }, [0, 0]);
+  const roundIcons: Record<string, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
   return <section className="arena-page">
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
@@ -427,12 +449,12 @@ function BattleArena({ player }: { player: Player }) {
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
     </>}
     {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-      <header><div><span>BATTLE / {result.code}</span><h2>YOU <b>VS</b> {result.opponent}</h2></div><div className="score-actions"><button type="button" className="voice-control battle-voice" aria-label={narration.state === "playing" ? "Stop battle narration" : "Play battle narration"} onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(battleNarration(result), "battle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={19} />}</button><div className="verdict"><strong>{result.verdictPct}%</strong><span>COMPATIBILITY</span></div></div></header>
-      <div className="rounds">{result.rounds.map((round, index) => <motion.article key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .15 * index }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><b style={{ width: `${round.p1Score}%` }} /></i><i><b style={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
-      <div className="prediction"><span>JOINT PREDICTION</span><p>“{result.prediction}”</p></div>
+      <header><div><span>BATTLE / {result.code} · BEST OF 5</span><h2>YOU <b>{runningScore[0]}—{runningScore[1]}</b> {result.opponent}</h2></div><div className="verdict"><strong>{roundPhase === "complete" ? result.verdictPct : `${roundIndex + 1}/5`}</strong><span>{roundPhase === "complete" ? "COMPATIBILITY" : "ROUND"}</span></div></header>
+      {roundPhase === "intro" && <motion.div className="round-intro" key={`intro-${roundIndex}`} initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }}><span>ROUND {roundIndex + 1}</span><strong>{roundIcons[result.rounds[roundIndex].name]} {result.rounds[roundIndex].name.toUpperCase()}</strong><small>THE ORACLE IS READING THE RING…</small></motion.div>}
+      <div className="rounds battle-sequence">{revealedRounds.map((round, index) => <motion.article className={index === roundIndex ? "active-round" : ""} key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{roundIcons[round.name]} {round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p1Score}%` }} /></i><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
+      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p></motion.div>}
       {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
-      <footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer>
-      <button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button>
+      {roundPhase === "complete" && <><footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer><button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button></>}
     </motion.div>}
   </section>;
 }
