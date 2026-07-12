@@ -4,16 +4,15 @@ from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
-from langfuse.openai import openai
 from pydantic import BaseModel, Field
 
-from .agency import UsageCost, _cost
+from .agency import UsageCost, _cost, _openai_client
 from .battle_math import ScoredRound, score_battle
 from .config import get_settings
 from .convex_client import ConvexUnavailable, mutation
 from .ephemeris import calculate_chart
 from .models import BattleRequest, BattleResponse, BattleRound, CelebritySummary
-from .observability import agent_step, traced_task
+from .observability import agent_step, langfuse_authenticated, traced_task
 
 
 DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "celebrities.json"
@@ -66,10 +65,10 @@ def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> Re
 def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[RefereeDraft, UsageCost]:
     settings = get_settings()
     fallback = _fallback_referee(rounds, opponent, tone)
-    if not settings.agency_configured:
+    if not settings.agency_configured or not langfuse_authenticated():
         return fallback, UsageCost()
     with agent_step("referee.narrate", {"model": settings.openai_sol_model, "opponent": opponent}):
-        response = openai.responses.parse(
+        response = _openai_client().responses.parse(
             model=settings.openai_sol_model,
             instructions=(
                 "You are the Match Referee. Narrate exactly three supplied deterministic rounds in order: Communication, Chaos, Loyalty. "
@@ -82,7 +81,7 @@ def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[Refer
             }),
             text_format=RefereeDraft,
             reasoning={"effort": "low"},
-            max_output_tokens=260,
+            max_output_tokens=600,
         )
     return response.output_parsed or fallback, _cost(response, settings.openai_sol_model)
 
@@ -124,4 +123,3 @@ async def battle(request: BattleRequest) -> BattleResponse:
         cardId=card_id, traceId=trace.trace_id, traceExported=trace.exported,
         latencyMs=trace.latency_ms, costUsd=cost.usd,
     )
-

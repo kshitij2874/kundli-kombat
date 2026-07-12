@@ -10,6 +10,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=True,
+        env_ignore_empty=True,
     )
 
     app_env: str = Field(default="development", alias="APP_ENV")

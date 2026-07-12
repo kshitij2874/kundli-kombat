@@ -1,15 +1,16 @@
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Literal
 from uuid import uuid4
 
-from langfuse.openai import openai
-from pydantic import BaseModel, Field
+from langfuse.openai import OpenAI
+from pydantic import BaseModel, Field, ValidationError
 
 from .config import get_settings
 from .convex_client import ConvexUnavailable, mutation
 from .models import Evidence, ReadingRequest, ReadingResponse
-from .observability import agent_step, traced_task
+from .observability import agent_step, langfuse_authenticated, traced_task
 from .policy import PolicyDecision, screen_question
 
 
@@ -39,6 +40,11 @@ PRICES_PER_MTOK = {
 }
 
 
+@lru_cache
+def _openai_client() -> OpenAI:
+    return OpenAI(api_key=get_settings().openai_api_key)
+
+
 def _cost(response: object, model: str) -> UsageCost:
     usage = getattr(response, "usage", None)
     input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
@@ -60,22 +66,25 @@ def _fallback_plan(request: ReadingRequest) -> ManagerPlan:
 
 def _manager_plan(request: ReadingRequest) -> tuple[ManagerPlan, UsageCost]:
     settings = get_settings()
-    if not settings.agency_configured:
+    if not settings.agency_configured or not langfuse_authenticated():
         return _fallback_plan(request), UsageCost()
     with agent_step("manager.plan", {"task": request.kind, "model": settings.openai_sol_model}):
-        response = openai.responses.parse(
-            model=settings.openai_sol_model,
-            instructions=(
-                "You are the Desk Manager for Kundli Kombat. Produce a short, task-specific plan. "
-                "Delegate interpretation, enforce evidence from the supplied chart, and include a final review. "
-                "Never give medical, legal, financial, pregnancy, or death predictions."
-            ),
-            input=json.dumps({"kind": request.kind, "question": request.question, "placement": request.placement}),
-            text_format=ManagerPlan,
-            reasoning={"effort": "low"},
-            max_output_tokens=140,
-            metadata={"langfuse_observation_name": "manager.plan", "task": request.kind},
-        )
+        try:
+            response = _openai_client().responses.parse(
+                model=settings.openai_sol_model,
+                instructions=(
+                    "You are the Desk Manager for Kundli Kombat. Produce a short, task-specific plan. "
+                    "Delegate interpretation, enforce evidence from the supplied chart, and include a final review. "
+                    "Never give medical, legal, financial, pregnancy, or death predictions."
+                ),
+                input=json.dumps({"kind": request.kind, "question": request.question, "placement": request.placement}),
+                text_format=ManagerPlan,
+                reasoning={"effort": "low"},
+                max_output_tokens=500,
+                metadata={"langfuse_observation_name": "manager.plan", "task": request.kind},
+            )
+        except ValidationError:
+            return _fallback_plan(request), UsageCost()
     return response.output_parsed or _fallback_plan(request), _cost(response, settings.openai_sol_model)
 
 
@@ -108,7 +117,7 @@ def _fallback_draft(request: ReadingRequest, placements: list[dict[str, object]]
 def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[InterpreterDraft, UsageCost]:
     settings = get_settings()
     placements = _placements(request)
-    if not settings.agency_configured:
+    if not settings.agency_configured or not langfuse_authenticated():
         return _fallback_draft(request, placements), UsageCost()
     payload = {
         "task": request.kind,
@@ -120,20 +129,23 @@ def _interpreter_draft(request: ReadingRequest, plan: ManagerPlan) -> tuple[Inte
         "placements": placements,
     }
     with agent_step("interpreter.read", {"task": request.kind, "model": settings.openai_sol_model}):
-        response = openai.responses.parse(
-            model=settings.openai_sol_model,
-            instructions=(
-                "You are Kundli Kombat's Interpreter. Use plain language, no astrology jargon. "
-                "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
-                "Tone may be comfort, straight, or playful roast; never insult the real person. "
-                "Write 2-4 short sentences and do not add a disclaimer."
-            ),
-            input=json.dumps(payload),
-            text_format=InterpreterDraft,
-            reasoning={"effort": "low"},
-            max_output_tokens=320,
-            metadata={"langfuse_observation_name": "interpreter.read", "task": request.kind},
-        )
+        try:
+            response = _openai_client().responses.parse(
+                model=settings.openai_sol_model,
+                instructions=(
+                    "You are Kundli Kombat's Interpreter. Use plain language, no astrology jargon. "
+                    "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
+                    "Tone may be comfort, straight, or playful roast; never insult the real person. "
+                    "Write 2-4 short sentences and do not add a disclaimer."
+                ),
+                input=json.dumps(payload),
+                text_format=InterpreterDraft,
+                reasoning={"effort": "low"},
+                max_output_tokens=600,
+                metadata={"langfuse_observation_name": "interpreter.read", "task": request.kind},
+            )
+        except ValidationError:
+            return _fallback_draft(request, placements), UsageCost()
     return response.output_parsed or _fallback_draft(request, placements), _cost(response, settings.openai_sol_model)
 
 

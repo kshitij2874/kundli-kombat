@@ -12,7 +12,7 @@ from .models import (
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
-from .observability import flush_traces, traced_task
+from .observability import flush_traces, langfuse_authenticated, traced_task
 
 
 @asynccontextmanager
@@ -43,6 +43,8 @@ def health() -> dict[str, object]:
             "traceId": trace.trace_id,
             "traceExported": trace.exported,
             "agencyConfigured": settings.agency_configured,
+            "langfuseAuthenticated": langfuse_authenticated(),
+            "agencyReady": bool(settings.openai_api_key and langfuse_authenticated()),
             "convexConfigured": settings.convex_url is not None,
         }
     response["latencyMs"] = trace.latency_ms
