@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     linkup_api_key: str | None = Field(default=None, alias="LINKUP_API_KEY")
     dodo_api_key: str | None = Field(default=None, alias="DODO_API_KEY")
     convex_url: AnyHttpUrl | None = Field(default=None, alias="CONVEX_URL")
-    convex_deploy_key: str | None = Field(default=None, alias="CONVEX_DEPLOY_KEY")
     web_origin: str = Field(default="http://localhost:5173", alias="WEB_ORIGIN")
 
     @property

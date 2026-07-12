@@ -14,7 +14,6 @@ Create `apps/api/.env` by copying `apps/api/.env.example`, then replace the plac
 - `LINKUP_API_KEY`: server-side key for celebrity lookup and news garnish.
 - `DODO_API_KEY`: Dodo live-mode server key. Never put this in the web app.
 - `CONVEX_URL`: deployment URL printed by `npx convex dev`.
-- `CONVEX_DEPLOY_KEY`: server-side Convex deploy key if API-side authenticated calls require it.
 - `WEB_ORIGIN`: `http://localhost:5173` locally, then the final `https://*.pages.dev` origin for the demo.
 
 Restart FastAPI after changing the file. `GET /health` must then return `"traceExported": true`; verify the `manager.health` trace in Langfuse.
