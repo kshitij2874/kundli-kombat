@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate and call the public Kundli Kombat POST /hermes endpoint.
 
-Request JSON is read from stdin so birth details are not written to a repo file.
+Request JSON is accepted as one CLI argument or read from stdin.
 This helper uses only the Python standard library and never talks to Telegram.
 """
 
@@ -253,11 +253,12 @@ def validate_response(document: Any, request: dict[str, Any]) -> dict[str, Any]:
     return response
 
 
-def read_request() -> dict[str, Any]:
+def read_request(request_json: str | None = None) -> dict[str, Any]:
+    source = "--request-json" if request_json is not None else "stdin"
     try:
-        document = json.load(sys.stdin)
+        document = json.loads(request_json) if request_json is not None else json.load(sys.stdin)
     except json.JSONDecodeError as exc:
-        raise ContractError(f"stdin is not valid JSON: {exc}") from exc
+        raise ContractError(f"{source} is not valid JSON: {exc}") from exc
     request = require_object(document, "request")
     request.setdefault("version", CONTRACT_VERSION)
     request.setdefault("requestId", str(uuid4()))
@@ -337,6 +338,14 @@ def run_self_test() -> None:
     for fixture in fixtures:
         validate_request(fixture)
 
+    compact_request = json.dumps(
+        {"action": "status", "identity": base["identity"]},
+        separators=(",", ":"),
+    )
+    parsed_request = read_request(compact_request)
+    if parsed_request["action"] != "status" or parsed_request["input"] != {}:
+        raise ContractError("--request-json self-test did not apply request defaults")
+
     status_response = {
         "version": "1",
         "requestId": base["requestId"],
@@ -373,7 +382,7 @@ def run_self_test() -> None:
         "safety": {"refused": True, "policy": "under13"},
     }
     validate_response(refusal_response, fixtures[2])
-    print(f"validated {len(fixtures)} request fixtures and 3 response fixtures")
+    print(f"validated {len(fixtures)} request fixtures, --request-json, and 3 response fixtures")
 
 
 def main() -> None:
@@ -382,6 +391,11 @@ def main() -> None:
     mode.add_argument("--validate-only", action="store_true", help="validate stdin request without network access")
     mode.add_argument("--probe", action="store_true", help="GET the public /health endpoint")
     mode.add_argument("--self-test", action="store_true", help="validate built-in fixtures without network access")
+    mode.add_argument(
+        "--request-json",
+        metavar="JSON",
+        help="validate and POST one complete request JSON object supplied directly",
+    )
     parser.add_argument("--timeout", type=float, default=55.0, help="network timeout in seconds (default: 55)")
     args = parser.parse_args()
     if not 0 < args.timeout <= 55:
@@ -393,7 +407,7 @@ def main() -> None:
         run_self_test()
         return
     try:
-        request = read_request()
+        request = read_request(args.request_json)
         if args.validate_only:
             print(json.dumps(request, ensure_ascii=False, indent=2, sort_keys=True))
             return
