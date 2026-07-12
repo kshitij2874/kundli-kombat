@@ -107,6 +107,7 @@ class BattleRequest(BaseModel):
     p1Chart: dict[str, object]
     p2Id: str | None = Field(default=None, max_length=100)
     p2Chart: dict[str, object] | None = None
+    p2Name: str | None = Field(default=None, min_length=1, max_length=80)
     celebrity: str | None = Field(default=None, max_length=100)
     tone: Literal["friendly", "savage"] = "friendly"
 
@@ -117,6 +118,14 @@ class FighterStatsRequest(BaseModel):
 
 class FighterStatsResponse(BaseModel):
     stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+
+
+class ChartPreviewResponse(BaseModel):
+    name: str
+    chart: dict[str, object]
+    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+    chartMode: Literal["birth-time", "solar"]
+    timeNotice: str | None
 
 
 class BattleRound(BaseModel):

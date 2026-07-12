@@ -11,11 +11,13 @@ from .battle_stats import fighter_stats
 from .geocoding import search_places
 from .hermes import process_hermes
 from .models import (
-    BattleRequest, BattleResponse, CelebritySummary, FighterStatsRequest, FighterStatsResponse,
+    BattleRequest, BattleResponse, CelebritySummary, ChartPreviewResponse,
+    FighterStatsRequest, FighterStatsResponse,
     OnboardRequest, OnboardResponse,
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
+from .ephemeris import calculate_chart
 from .observability import flush_traces, langfuse_authenticated, traced_task
 from .voice import VoiceRequest, VoiceUnavailable, generate_voice
 
@@ -109,6 +111,25 @@ def celebrities() -> list[CelebritySummary]:
 @app.post("/fighter-stats", response_model=FighterStatsResponse)
 def calculate_fighter_stats(request: FighterStatsRequest) -> FighterStatsResponse:
     return FighterStatsResponse(stats=fighter_stats(request.chart))
+
+
+@app.post("/chart-preview", response_model=ChartPreviewResponse)
+def chart_preview(request: OnboardRequest) -> ChartPreviewResponse:
+    """Calculate an ephemeral comparison chart without storing the person's birth data."""
+    chart = calculate_chart(
+        dob=request.dob, tob=request.tob, tob_unknown=request.tobUnknown,
+        lat=request.lat, lon=request.lon, tz=request.tz,
+    )
+    return ChartPreviewResponse(
+        name=request.name,
+        chart=chart,
+        stats=fighter_stats(chart),
+        chartMode="solar" if request.tobUnknown else "birth-time",
+        timeNotice=(
+            "Birth time unknown: compatibility uses an approximate noon solar chart."
+            if request.tobUnknown else None
+        ),
+    )
 
 
 @app.post("/battle", response_model=BattleResponse)

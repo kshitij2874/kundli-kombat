@@ -100,7 +100,7 @@ async def battle(request: BattleRequest) -> BattleResponse:
         _, p2_chart = _celebrity_chart(request.celebrity)
         opponent = request.celebrity
     elif request.p2Chart and request.p2Id:
-        p2_chart, opponent = request.p2Chart, "Friend"
+        p2_chart, opponent = request.p2Chart, request.p2Name or "Friend"
     else:
         raise ValueError("A celebrity or second player chart is required")
     with traced_task("manager.battle", task="battle", player_id=request.p1Id) as trace:

@@ -37,6 +37,7 @@ type Celebrity = { name: string; place: string; dob: string; big3: Record<string
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 type Challenge = { chart: Player["chart"]; id: string };
+type KnownPreview = { name: string; chart: Player["chart"]; stats: FighterStats; chartMode: "birth-time" | "solar"; timeNotice?: string };
 
 type KkSpeechResult = { 0?: { transcript?: string } };
 type KkSpeechEvent = { results: { length: number; [index: number]: KkSpeechResult } };
@@ -435,6 +436,7 @@ function Today({ player, onAsk, onBattle }: { player: Player; onAsk: (voice?: bo
 }
 
 function BattleArena({ player, challenge }: { player: Player; challenge?: Challenge | null }) {
+  const [opponentMode, setOpponentMode] = useState<"celebrity" | "known">("celebrity");
   const [celebrities, setCelebrities] = useState<Celebrity[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [tone, setTone] = useState<"friendly" | "savage">("friendly");
@@ -446,6 +448,16 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   const [roundPhase, setRoundPhase] = useState<"intro" | "scores" | "complete">("intro");
   const [shareStatus, setShareStatus] = useState("");
   const [challengeStats, setChallengeStats] = useState<FighterStats | null>(null);
+  const [knownName, setKnownName] = useState("");
+  const [knownDob, setKnownDob] = useState("");
+  const [knownTob, setKnownTob] = useState("");
+  const [knownUnknown, setKnownUnknown] = useState(false);
+  const [knownPlaceQuery, setKnownPlaceQuery] = useState("");
+  const [knownPlace, setKnownPlace] = useState<Place | null>(null);
+  const [knownPlaces, setKnownPlaces] = useState<Place[]>([]);
+  const [knownSuggestions, setKnownSuggestions] = useState<string[]>([]);
+  const [knownFinding, setKnownFinding] = useState(false);
+  const [knownPreview, setKnownPreview] = useState<KnownPreview | null>(null);
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
@@ -454,22 +466,56 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     if (challenge) api<{ stats: FighterStats }>("/fighter-stats", { method: "POST", body: JSON.stringify({ chart: challenge.chart }) })
       .then((value) => setChallengeStats(value.stats)).catch(() => setError("Challenger stats are offline."));
   }, []);
-  const opponent = challenge ? null : celebrities.find((item) => item.name === selected);
+  useEffect(() => {
+    if (opponentMode !== "known" || knownPlace || knownPlaceQuery.trim().length < 2) {
+      setKnownPlaces([]); setKnownSuggestions([]); return;
+    }
+    const timer = window.setTimeout(async () => {
+      setKnownFinding(true);
+      try {
+        const result = await api<{ results: Place[]; suggestions: string[] }>(`/places?q=${encodeURIComponent(knownPlaceQuery)}`);
+        setKnownPlaces(result.results); setKnownSuggestions(result.suggestions);
+      } catch { setError("The place desk is briefly offline."); }
+      finally { setKnownFinding(false); }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [opponentMode, knownPlaceQuery, knownPlace]);
+  const opponent = challenge || opponentMode === "known" ? null : celebrities.find((item) => item.name === selected);
   const statIcons: Record<keyof FighterStats, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
   function fighterCard(name: string, stats: FighterStats, side: "p1" | "p2") {
     return <article className={`fighter-card ${side}`}><header><span>{side === "p1" ? "CHALLENGER" : "OPPONENT"}</span><h3>{name}</h3></header><div>{Object.entries(stats).map(([label, score]) => <div className="fighter-stat" key={label}><p><span>{statIcons[label as keyof FighterStats]} {label}</span><strong>{score}</strong></p><i><motion.b initial={{ width: 0 }} animate={{ width: `${score}%` }} /></i></div>)}</div></article>;
   }
   async function fight() {
-    if (!selected && !challenge) return;
+    if (!selected && !challenge && !knownPreview) return;
     setLoading(true); setResult(null); setError("");
     try {
       const battleInput = challenge
         ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: challenge.id, p2Chart: challenge.chart, tone }
+        : knownPreview
+          ? { p1Id: player.playerId, p1Chart: player.chart, p2Id: "local-known-person", p2Chart: knownPreview.chart, p2Name: knownPreview.name, tone }
         : { p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone };
       const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify(battleInput) });
       setResult(nextResult);
       setRoundIndex(0); setRoundPhase("intro");
     } catch { setError("The Arena lost the signal. Try the round again."); }
+    finally { setLoading(false); }
+  }
+  async function prepareKnown(event: FormEvent) {
+    event.preventDefault(); setError("");
+    if (!knownPlace) { setError("Choose their birth place from the list."); return; }
+    if (!knownUnknown && !knownTob) { setError("Add their birth time, or mark it unknown."); return; }
+    setLoading(true);
+    try {
+      const preview = await api<KnownPreview>("/chart-preview", {
+        method: "POST",
+        body: JSON.stringify({
+          name: knownName, dob: knownDob, tob: knownUnknown ? null : knownTob,
+          tobUnknown: knownUnknown, place: knownPlace.label, lat: knownPlace.lat,
+          lon: knownPlace.lon, tz: knownPlace.timezone, tone: "straight", lang: "en", source: "web",
+        }),
+      });
+      setKnownPreview(preview);
+    } catch { setError("Their comparison chart could not be calculated. Check the details and retry."); }
     finally { setLoading(false); }
   }
   useEffect(() => {
@@ -509,10 +555,13 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   return <section className="arena-page">
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
-      {!challenge && <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>}
-      {playerStats && (opponent || challengeStats) && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(challenge ? "CHALLENGER" : opponent!.name, challenge ? challengeStats! : opponent!.stats, "p2")}</div></div>}
+      {!challenge && <div className="opponent-tabs"><button className={opponentMode === "celebrity" ? "active" : ""} onClick={() => { setOpponentMode("celebrity"); setKnownPreview(null); }}>Famous personality</button><button className={opponentMode === "known" ? "active" : ""} onClick={() => setOpponentMode("known")}>Someone I know</button></div>}
+      {!challenge && opponentMode === "celebrity" && <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>}
+      {!challenge && opponentMode === "known" && !knownPreview && <form className="known-form" onSubmit={prepareKnown}><div className="known-form-head"><div><span>PRIVATE COMPATIBILITY</span><h2>Battle your partner or friend</h2></div><small>Calculated for this battle only. Their birth details are not saved.</small></div><div className="known-fields"><label><span>Their name</span><input required value={knownName} onChange={(event) => setKnownName(event.target.value)} placeholder="Wife, husband, partner, friend…" /></label><label><span>Birth date</span><input required type="date" value={knownDob} onChange={(event) => setKnownDob(event.target.value)} /></label><label><span>Birth time</span><input required={!knownUnknown} disabled={knownUnknown} type="time" value={knownTob} onChange={(event) => setKnownTob(event.target.value)} /></label><label className="known-place"><span>Birth place</span><div className="input-icon"><Search size={17} /><input required value={knownPlace?.label ?? knownPlaceQuery} onChange={(event) => { setKnownPlace(null); setKnownPlaceQuery(event.target.value); }} placeholder="Start typing a city" />{knownFinding && <i />}</div>{(knownPlaces.length > 0 || knownSuggestions.length > 0) && <div className="place-menu">{knownPlaces.map((item) => <button type="button" key={item.id} onClick={() => { setKnownPlace(item); setKnownPlaces([]); setKnownSuggestions([]); }}><strong>{item.name}</strong><span>{item.country} · {item.timezone}</span></button>)}{knownPlaces.length === 0 && knownSuggestions.map((item) => <button type="button" key={item} onClick={() => setKnownPlaceQuery(item)}><strong>{item}</strong><span>Search nearest city</span></button>)}</div>}</label></div><label className="check-row"><input type="checkbox" checked={knownUnknown} onChange={(event) => { setKnownUnknown(event.target.checked); if (event.target.checked) setKnownTob(""); }} /><span><Check size={13} /> Birth time unknown</span></label><button className="primary-button" disabled={loading}>{loading ? "Calculating their fighter…" : "Create compatibility fighter"}<ArrowRight size={18} /></button></form>}
+      {playerStats && (opponent || challengeStats || knownPreview) && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(challenge ? "CHALLENGER" : knownPreview ? knownPreview.name : opponent!.name, challenge ? challengeStats! : knownPreview ? knownPreview.stats : opponent!.stats, "p2")}</div></div>}
+      {knownPreview?.timeNotice && <p className="time-notice arena-time-notice">{knownPreview.timeNotice}</p>}
       {error && <p className="form-error">{error}</p>}
-      <button className="primary-button fight-button" disabled={loading || (!selected && !challenge)} onClick={fight}>{loading ? "Charts entering the ring…" : challenge ? "Accept challenge" : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>
+      {(challenge || opponentMode === "celebrity" || knownPreview) && <button className="primary-button fight-button" disabled={loading || (!selected && !challenge && !knownPreview)} onClick={fight}>{loading ? "Charts entering the ring…" : challenge ? "Accept challenge" : knownPreview ? `Check compatibility with ${knownPreview.name}` : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>}
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
     </>}
     {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
