@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from .agency import UsageCost, _cost, _openai_client
 from .battle_math import ScoredRound, score_battle
+from .battle_stats import fighter_stats
 from .config import get_settings
 from .convex_client import ConvexUnavailable, mutation
 from .ephemeris import calculate_chart
@@ -45,6 +46,7 @@ def list_celebrities() -> list[CelebritySummary]:
         result.append(CelebritySummary(
             name=str(seed["name"]), place=str(seed["place"]), dob=str(seed["dob"]),
             big3={key: str(value) for key, value in chart["big3"].items()},
+            stats=fighter_stats(chart),
         ))
     return result
 

@@ -7,10 +7,12 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .agency import create_reading
 from .battles import battle, list_celebrities
+from .battle_stats import fighter_stats
 from .geocoding import search_places
 from .hermes import process_hermes
 from .models import (
-    BattleRequest, BattleResponse, CelebritySummary, OnboardRequest, OnboardResponse,
+    BattleRequest, BattleResponse, CelebritySummary, FighterStatsRequest, FighterStatsResponse,
+    OnboardRequest, OnboardResponse,
     PlaceSearchResponse, ReadingRequest, ReadingResponse,
 )
 from .onboarding import onboard
@@ -102,6 +104,11 @@ async def places(q: str) -> PlaceSearchResponse:
 @app.get("/celebrities", response_model=list[CelebritySummary])
 def celebrities() -> list[CelebritySummary]:
     return list_celebrities()
+
+
+@app.post("/fighter-stats", response_model=FighterStatsResponse)
+def calculate_fighter_stats(request: FighterStatsRequest) -> FighterStatsResponse:
+    return FighterStatsResponse(stats=fighter_stats(request.chart))
 
 
 @app.post("/battle", response_model=BattleResponse)

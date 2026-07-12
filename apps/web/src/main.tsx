@@ -32,7 +32,8 @@ type Player = {
   timeNotice?: string;
 };
 type Reading = { text: string; evidence: Placement[]; refused: boolean; policy?: string; plan: string[]; latencyMs: number; costUsd: number };
-type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean };
+type FighterStats = Record<"Love" | "Career" | "Luck" | "Fire" | "Chaos", number>;
+type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean; stats: FighterStats };
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
 
@@ -394,10 +395,18 @@ function BattleArena({ player }: { player: Player }) {
   const [result, setResult] = useState<BattleResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [playerStats, setPlayerStats] = useState<FighterStats | null>(null);
   const narration = useNarration();
   useEffect(() => {
     api<Celebrity[]>("/celebrities").then((items) => { setCelebrities(items); setSelected(items[0]?.name ?? ""); }).catch(() => setError("Celebrity desk is offline."));
+    api<{ stats: FighterStats }>("/fighter-stats", { method: "POST", body: JSON.stringify({ chart: player.chart }) })
+      .then((value) => setPlayerStats(value.stats)).catch(() => setError("Fighter stats are offline."));
   }, []);
+  const opponent = celebrities.find((item) => item.name === selected);
+  const statIcons: Record<keyof FighterStats, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
+  function fighterCard(name: string, stats: FighterStats, side: "p1" | "p2") {
+    return <article className={`fighter-card ${side}`}><header><span>{side === "p1" ? "CHALLENGER" : "OPPONENT"}</span><h3>{name}</h3></header><div>{Object.entries(stats).map(([label, score]) => <div className="fighter-stat" key={label}><p><span>{statIcons[label as keyof FighterStats]} {label}</span><strong>{score}</strong></p><i><motion.b initial={{ width: 0 }} animate={{ width: `${score}%` }} /></i></div>)}</div></article>;
+  }
   async function fight() {
     if (!selected) return;
     setLoading(true); setResult(null); setError("");
@@ -412,6 +421,7 @@ function BattleArena({ player }: { player: Player }) {
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
       <div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i></button>)}</div>
+      {playerStats && opponent && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(opponent.name, opponent.stats, "p2")}</div></div>}
       {error && <p className="form-error">{error}</p>}
       <button className="primary-button fight-button" disabled={loading || !selected} onClick={fight}>{loading ? "Charts entering the ring…" : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}

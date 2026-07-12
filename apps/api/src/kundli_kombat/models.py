@@ -111,6 +111,14 @@ class BattleRequest(BaseModel):
     tone: Literal["friendly", "savage"] = "friendly"
 
 
+class FighterStatsRequest(BaseModel):
+    chart: dict[str, object]
+
+
+class FighterStatsResponse(BaseModel):
+    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+
+
 class BattleRound(BaseModel):
     name: Literal["Communication", "Chaos", "Loyalty"]
     p1Score: int = Field(ge=0, le=100)
@@ -141,3 +149,4 @@ class CelebritySummary(BaseModel):
     dob: str
     big3: dict[str, str]
     timeApproximate: bool = True
+    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
