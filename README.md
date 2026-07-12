@@ -15,4 +15,4 @@ An astrologer's practice run by an agent organization, packaged as a game: disco
 See `AGENTS.md` for build, safety, deployment, and ownership rules.
 
 Environment setup is documented in `docs/ENV_SETUP.md`. After Convex is configured,
-run `apps/api/.venv/bin/python scripts/seed_celebrities.py` from the repository root.
+run `.venv/bin/python ../../scripts/seed_celebrities.py` from `apps/api`.
