@@ -11,6 +11,7 @@ node_modules/
 dist/
 .vite/
 .wrangler/
+*.tsbuildinfo
 
 # Python
 __pycache__/
@@ -33,4 +34,3 @@ work/
 .DS_Store
 .idea/
 .vscode/
-
