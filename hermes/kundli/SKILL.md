@@ -21,7 +21,7 @@ Operate Kundli Kombat inside a Hermes Gateway Telegram conversation. Hermes owns
 Always call the repo helper, which sends `POST /hermes` to:
 
 ```text
-https://meter-transit-laws-pine.trycloudflare.com
+https://thomas-brave-obligation-knowing.trycloudflare.com
 ```
 
 Never call Telegram Bot API directly. Never calculate a chart, placement, daily reading, Oracle answer, or battle score yourself. Never include a token or read a repo `.env` file.

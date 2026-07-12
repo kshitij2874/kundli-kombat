@@ -2,7 +2,7 @@
 
 Contract version: `1`
 
-Base URL: `https://meter-transit-laws-pine.trycloudflare.com`
+Base URL: `https://thomas-brave-obligation-knowing.trycloudflare.com`
 
 Hermes Gateway calls exactly one application endpoint:
 

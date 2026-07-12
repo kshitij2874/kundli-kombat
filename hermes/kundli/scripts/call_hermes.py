@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID, uuid4
 
-API_BASE_URL = "https://meter-transit-laws-pine.trycloudflare.com"
+API_BASE_URL = "https://thomas-brave-obligation-knowing.trycloudflare.com"
 CONTRACT_VERSION = "1"
 ENTERTAINMENT_FOOTER = "for reflection and fun, not fate."
 ACTIONS = {"status", "help", "onboard", "daily", "oracle", "celebrity_battle"}
