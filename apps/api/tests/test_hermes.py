@@ -41,6 +41,21 @@ def test_hermes_status_is_contract_shaped(monkeypatch: Any) -> None:
     assert payload["meta"]["traceId"]
 
 
+def test_hermes_help_explains_first_time_onboarding(monkeypatch: Any) -> None:
+    monkeypatch.setattr("kundli_kombat.hermes.query", _no_record_query)
+    monkeypatch.setattr("kundli_kombat.hermes.mutation", _mutation)
+    response = TestClient(app).post(
+        "/hermes", json={**BASE_REQUEST, "action": "help", "input": {}}
+    )
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert "Birth date (YYYY-MM-DD)" in message
+    assert "HH:MM" in message
+    assert "unknown" in message
+    assert "Pune, India" in message
+    assert "Daily" in message and "Oracle" in message and "Battle" in message
+
+
 def test_hermes_unknown_time_onboarding_is_explicitly_approximate(monkeypatch: Any) -> None:
     from kundli_kombat.models import PlaceResult, PlaceSearchResponse
 

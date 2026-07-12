@@ -1,7 +1,7 @@
 ---
 name: kundli
 description: Use when a Hermes Gateway Telegram user asks for Kundli Kombat status, help, onboarding, a daily reading, an Oracle answer, or a celebrity battle. Calls the public Kundli API through the repo-owned contract while preserving Telegram identity and player memory.
-version: 1.0.0
+version: 1.1.0
 author: Kundli Kombat
 license: MIT
 platforms: [macos, linux]
@@ -92,6 +92,52 @@ The helper adds contract `version` and a UUID `requestId` when omitted, validate
 Reply using `response.message` exactly as returned. Do not rewrite chart claims, evidence, scores, cost, policy text, or refusal text. Do not expose the raw JSON unless asked for diagnostics.
 
 ## Conversation workflows
+
+### Start, new, reset, and first-contact welcome
+
+Recognize `/start`, `start`, `hi`, `hello`, `new`, `/new`, `reset`, `/reset`, `/clear`, and the first user message after Hermes clears or creates a session. Do not answer with generic Hermes capabilities, shell commands, tool explanations, or questions such as “How can I help?”. This is the Kundli Kombat product entry point.
+
+First send a `status` request with `playerId: null` to recover returning-player memory.
+
+If `data.hasPlayer` is true, greet the returning player and show only these immediately usable choices:
+
+```text
+🥊 Welcome back to Kundli Kombat!
+
+Your chart is connected. Send one of these:
+• Daily — today’s chart-backed reading
+• Oracle: <your question> — choose comfort, straight, or roast
+• Battle: <celebrity name> — choose friendly or savage
+• New chart — replace your saved chart
+
+Examples:
+Daily, straight
+Oracle: What should I focus on this week? comfort
+Battle: Virat Kohli, savage
+```
+
+If `data.hasPlayer` is false, send this onboarding prompt verbatim and wait for the user’s details:
+
+```text
+🥊 Welcome to Kundli Kombat — your real birth chart becomes a cosmic fighter.
+
+Send these 4 details in one message:
+1. Name
+2. Birth date (YYYY-MM-DD)
+3. Local birth time (HH:MM) — or write “unknown”
+4. Birth city and country
+
+Example:
+Asha, 1995-08-17, 14:35, Pune, India
+
+Don’t know your birth time?
+Asha, 1995-08-17, unknown, Pune, India
+
+Optional: add “Hinglish” or a tone — comfort, straight, or roast.
+I’ll calculate your Lahiri sidereal Sun, Moon, rising sign and nakshatra, then unlock Daily, Oracle and celebrity battles.
+```
+
+When a user says `new chart`, explicitly confirm that they want to replace the chart currently connected to their Telegram identity, then collect the same four fields. A bare Hermes `/new`, `/clear`, or `/reset` may already clear conversation context before this skill runs; on the next message, use the first-contact workflow above and recover the player through `status`.
 
 ### Status
 
@@ -214,6 +260,10 @@ Still send the structured request to `POST /hermes` when enough action fields ar
 For immediate danger or abuse, the API may encourage local emergency services or a trusted person. Do not claim that Hermes or Kundli Kombat is emergency support.
 
 A safety refusal is a successful business response: `ok: true`, `safety.refused: true`, empty evidence, and no chart claims. Never override it, retry it, or switch tone to evade it.
+
+### Mixed-topic Oracle questions
+
+A single Oracle question may combine ordinary relationship or family themes with regulated topics such as health or financial outcomes. Send the complete question unchanged so the server can screen it. If any regulated topic causes the server to refuse the whole request, relay that refusal exactly; do not answer the remaining topics locally, silently split the request, or re-submit a softened version to evade policy. On a later turn, the user may ask a separate non-regulated reflective question (for example, about communication, priorities, or relationships), which can be routed normally.
 
 ## Entertainment footer
 

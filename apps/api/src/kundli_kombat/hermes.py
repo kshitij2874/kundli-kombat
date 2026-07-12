@@ -447,7 +447,8 @@ async def _status_or_help(request: HermesRequest) -> dict[str, Any]:
             message = (
                 "Kundli Kombat is ready. Your chart is connected."
                 if player_id else
-                "Kundli Kombat is ready. Share your birth details to onboard."
+                "Kundli Kombat is ready. To begin, send your name, birth date (YYYY-MM-DD), "
+                "local birth time (HH:MM or unknown), and birth city plus country."
             )
             data = {
                 "service": "kundli-kombat-agency",
@@ -457,8 +458,14 @@ async def _status_or_help(request: HermesRequest) -> dict[str, Any]:
             }
         else:
             message = (
-                "Kundli Kombat can onboard your chart, give a daily reading, answer an Oracle "
-                "question, or battle your chart against a celebrity. Tell me which one you want."
+                "🥊 Kundli Kombat turns your real birth chart into a cosmic fighter.\n\n"
+                "To onboard, send these four details in one message:\n"
+                "1. Name\n2. Birth date (YYYY-MM-DD)\n"
+                "3. Local birth time (HH:MM), or write unknown\n"
+                "4. Birth city and country\n\n"
+                "Example: Asha, 1995-08-17, 14:35, Pune, India\n"
+                "Unknown time: Asha, 1995-08-17, unknown, Pune, India\n\n"
+                "After onboarding, send Daily, Oracle: <question>, or Battle: <celebrity>."
             )
             data = {
                 "commands": [
