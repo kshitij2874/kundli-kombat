@@ -1,0 +1,102 @@
+name: Kundli Kombat CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: kundli-kombat-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+      - name: Install API dependencies
+        run: python -m pip install -e "apps/api[dev]"
+      - name: Run API tests
+        run: python -m pytest apps/api/tests -q
+      - name: Lint API
+        run: python -m ruff check apps/api/src apps/api/tests
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - name: Typecheck Convex functions
+        run: npx tsc --project convex/tsconfig.json
+      - name: Build web application
+        run: npm run build:web
+        env:
+          VITE_CONVEX_URL: https://ci-placeholder.convex.cloud
+          VITE_API_URL: https://ci-placeholder.trycloudflare.com
+      - name: Upload production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ github.sha }}
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-convex:
+    name: Deploy Convex
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Deploy schema and functions
+        run: npx convex deploy --typecheck enable
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+  deploy-pages:
+    name: Deploy Cloudflare Pages
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [verify, deploy-convex]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment:
+      name: production
+      url: https://kundli-kombat.pages.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build with production public endpoints
+        run: npm run build:web
+        env:
+          VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy apps/web/dist --project-name kundli-kombat --branch main --commit-hash ${{ github.sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
