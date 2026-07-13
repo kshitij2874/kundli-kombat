@@ -1,0 +1,59 @@
+.astrology-details {
+  margin-top: 14px;
+  text-align: left;
+}
+
+.astrology-details > button {
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px dashed #625a78;
+  background: none;
+  color: #a99fff;
+  font-size: 10px;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+
+.astrology-details > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  overflow: hidden;
+  padding-top: 10px;
+}
+
+.astrology-details span {
+  padding: 7px 9px;
+  border: 1px solid #3b374e;
+  background: #15131b;
+  color: #aaa2e8;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.astrology-details.compact {
+  display: grid;
+  justify-items: center;
+  margin-top: 10px;
+}
+
+.astrology-details.compact > div { justify-content: center; }
+.identity-card > .astrology-details {
+  position: relative;
+  z-index: 2;
+  justify-items: stretch;
+  margin: 8px 0 24px;
+}
+.identity-card > .astrology-details > button { text-align: left; }
+.identity-card > .astrology-details > div { justify-content: flex-start; }
+.identity-strip > div > strong {
+  font-family: "Space Grotesk";
+  font-size: 16px;
+  line-height: 1.4;
+  text-transform: none;
+}
+.coming > .astrology-details { max-width: 680px; margin: 0 0 26px; }
+.fight-commentary .astrology-details > button,
+.ko-screen > .astrology-details > button { color: #9188ca; }
+.oracle-answer > .astrology-details { justify-items: start; }
+.oracle-answer > .astrology-details > div { justify-content: flex-start; }

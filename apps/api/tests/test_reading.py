@@ -80,3 +80,30 @@ def test_review_rejects_planets_absent_from_supplied_chart() -> None:
     _, _, valid = _review(request, draft)
 
     assert valid is False
+
+
+def test_review_accepts_plain_language_with_hidden_chart_evidence() -> None:
+    request = ReadingRequest.model_validate(
+        {
+            "playerId": "local-test",
+            "kind": "daily",
+            "chart": {
+                "placements": [
+                    {"planet": "Sun", "sign": "Sagittarius", "longitude": 256.6},
+                ],
+            },
+            "tone": "straight",
+            "lang": "en",
+        }
+    )
+    draft = InterpreterDraft(
+        text="Pick one useful goal, take a small first step, and leave room to change your mind.",
+        evidencePlanets=["Sun"],
+    )
+
+    text, evidence, valid = _review(request, draft)
+
+    assert valid is True
+    assert evidence[0].planet == "Sun"
+    assert "Sun" not in text
+    assert "Sagittarius" not in text

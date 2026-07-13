@@ -1,6 +1,7 @@
 from datetime import date, time
 
 from kundli_kombat.battle_math import score_battle
+from kundli_kombat.battles import _fallback_referee
 from kundli_kombat.ephemeris import calculate_chart
 
 
@@ -28,3 +29,15 @@ def test_battle_determinism_eval_has_three_weighted_rounds() -> None:
     assert 0 <= verdict <= 100
     assert winner in {"p1", "p2", "tie"}
     assert all(0 <= item.p1_score <= 100 and 0 <= item.p2_score <= 100 for item in rounds)
+
+
+def test_public_battle_commentary_hides_astrology_jargon() -> None:
+    rounds, _, _ = score_battle(_chart(date(1995, 4, 14)), _chart(date(1989, 12, 13)))
+
+    commentary = _fallback_referee(rounds, "Opponent", "friendly")
+    public_copy = " ".join([*commentary.lines, commentary.prediction]).lower()
+
+    assert all(
+        word not in public_copy
+        for word in ("venus", "moon", "saturn", "jupiter", "mars", "uranus", "aspect", "sign")
+    )

@@ -7,9 +7,41 @@ from .observability import traced_task
 
 
 def _identity_line(big3: dict[str, str]) -> str:
+    drives = {
+        "Aries": "You like to start fast and learn by doing",
+        "Taurus": "You build slowly, steadily, and with care",
+        "Gemini": "You stay curious and think in many directions",
+        "Cancer": "You protect what matters and notice how people feel",
+        "Leo": "You bring warmth, courage, and a wish to be seen",
+        "Virgo": "You notice small details and enjoy making things better",
+        "Libra": "You look for fairness and help people meet in the middle",
+        "Scorpio": "You feel things deeply and do not give up easily",
+        "Sagittarius": "You chase new ideas, freedom, and bigger adventures",
+        "Capricorn": "You set serious goals and keep climbing toward them",
+        "Aquarius": "You think differently and care about improving the group",
+        "Pisces": "You lead with imagination, kindness, and strong intuition",
+    }
+    feelings = {
+        "Aries": "Your feelings arrive quickly and honestly",
+        "Taurus": "You feel safest with calm, comfort, and steady people",
+        "Gemini": "Talking and learning help you understand your feelings",
+        "Cancer": "You care deeply and remember how people make you feel",
+        "Leo": "You need warmth, loyalty, and room to express your heart",
+        "Virgo": "You handle feelings by fixing problems and helping",
+        "Libra": "Peace and fair treatment help you feel balanced",
+        "Scorpio": "Your feelings run deep, even when you keep them private",
+        "Sagittarius": "Space, honesty, and hope help you reset",
+        "Capricorn": "You often stay composed and show care through actions",
+        "Aquarius": "You need breathing room before feelings make sense",
+        "Pisces": "You easily pick up moods and need quiet time to recharge",
+    }
+    drive = drives.get(big3["sun"], "You have your own way of moving through the world")
+    feeling = feelings.get(big3["moon"], "Your feelings have their own clear rhythm")
     if big3["rising"] == "Solar chart":
-        return f"{big3['sun']} drive, {big3['moon']} instincts — your birth time is unknown, so the rising sign stays off the scoreboard."
-    return f"{big3['sun']} drive, {big3['moon']} instincts, {big3['rising']} entrance — calm face, cosmic plot twist."
+        return f"{drive}. {feeling}. Your birth time is unknown, so we leave first impressions out instead of guessing."
+    return (
+        f"{drive}. {feeling}. Together, that is the energy people meet when you walk into a room."
+    )
 
 
 async def onboard(request: OnboardRequest) -> OnboardResponse:
@@ -68,7 +100,8 @@ async def onboard(request: OnboardRequest) -> OnboardResponse:
             chartMode="solar" if request.tobUnknown else "birth-time",
             timeNotice=(
                 "Birth time unknown: this is an honest noon solar chart. Rising sign and houses are not claimed."
-                if request.tobUnknown else None
+                if request.tobUnknown
+                else None
             ),
             traceId=trace.trace_id,
             traceExported=trace.exported,

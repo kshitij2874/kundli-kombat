@@ -61,22 +61,23 @@ def list_celebrities() -> list[CelebritySummary]:
 
 def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> RefereeDraft:
     icons = {"Love": "❤️", "Career": "💼", "Chaos": "⚡"}
+    meanings = {
+        "Love": "showing care and understanding feelings",
+        "Career": "setting goals and getting things done",
+        "Chaos": "handling pressure and sudden surprises",
+    }
     lines = []
     for item in rounds:
         if item.p1_score == item.p2_score:
-            result = "Dead even—the cosmos refuses to pick a side."
+            result = f"You are evenly matched at {item.p1_score} each for {meanings[item.name]}."
         elif item.p1_score > item.p2_score:
-            result = f"You take it {item.p1_score} to {item.p2_score}. Cosmic flex confirmed."
+            result = f"You win {item.p1_score} to {item.p2_score} at {meanings[item.name]}. Strong round."
         else:
-            result = (
-                f"{opponent} takes it {item.p2_score} to {item.p1_score}. That one left a crater."
-            )
+            result = f"{opponent} wins {item.p2_score} to {item.p1_score} at {meanings[item.name]}. Ouch, but clear."
         lines.append(f"{icons[item.name]} {result}")
-    prediction = f"Three rounds down: you and {opponent} just gave the cosmos a proper main event."
+    prediction = f"You and {opponent} bring different strengths, so teamwork works best when each person gets room to lead."
     if tone == "savage":
-        prediction = (
-            f"You and {opponent} could turn choosing a restaurant into a three-act cosmic trial."
-        )
+        prediction = f"You and {opponent} could turn choosing a snack into a championship debate, then laugh about it."
     return RefereeDraft(lines=lines, prediction=prediction)
 
 
@@ -105,6 +106,8 @@ def _referee(
                         "role": "system",
                         "content": (
                             "You are the Oracle Commentator. Narrate exactly three supplied deterministic rounds in order: Love, Career, Chaos. "
+                            "Write for a 10-year-old with no astrology knowledge. Translate chart evidence into everyday behavior. "
+                            "Never name a planet, zodiac sign, aspect, transit, orb, house, degree, or other astrology term. "
                             "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
                             "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
                             "End with one harmless one-line cosmic verdict. Return JSON only with this exact shape: "
@@ -141,6 +144,43 @@ def _referee(
                 },
             )
             draft = RefereeDraft.model_validate_json(response.choices[0].message.content or "{}")
+            jargon = {
+                "sun",
+                "moon",
+                "mercury",
+                "venus",
+                "mars",
+                "jupiter",
+                "saturn",
+                "uranus",
+                "neptune",
+                "pluto",
+                "rahu",
+                "ketu",
+                "aries",
+                "taurus",
+                "gemini",
+                "cancer",
+                "leo",
+                "virgo",
+                "libra",
+                "scorpio",
+                "sagittarius",
+                "capricorn",
+                "aquarius",
+                "pisces",
+                "aspect",
+                "transit",
+                "orb",
+                "house",
+                "degree",
+                "nakshatra",
+                "retrograde",
+                "sidereal",
+            }
+            public_copy = " ".join([*draft.lines, draft.prediction]).lower()
+            if any(term in public_copy for term in jargon):
+                return fallback, UsageCost()
         except ValidationError:
             return fallback, UsageCost()
         cost = _cost(response, settings.deepseek_model)

@@ -191,15 +191,18 @@ def _fallback_draft(
         ]
         chosen = matched[:1] or chosen
     names = [str(item["planet"]) for item in chosen] or ["Sun"]
-    evidence_phrase = " and ".join(f"your {item['planet']} in {item['sign']}" for item in chosen)
     tone = {
-        "comfort": "Take the gentler route today: protect your attention before you promise it away.",
+        "comfort": "Take the gentler route today. Protect your attention before you promise it away.",
         "straight": "Your move today is simple: say the useful thing early, then stop over-explaining.",
-        "roast": "Your chart has opened seventeen mental tabs; close sixteen before calling it intuition.",
+        "roast": "Your brain has opened seventeen tabs. Close sixteen before calling it intuition.",
     }[request.tone]
-    question = f" For your question, “{request.question}”," if request.question else ""
+    question = (
+        "Start with the part you can control, then take one small next step. "
+        if request.question
+        else ""
+    )
     return InterpreterDraft(
-        text=f"With {evidence_phrase},{question} {tone}",
+        text=f"{question}{tone}",
         evidencePlanets=names,
     )
 
@@ -238,9 +241,10 @@ def _interpreter_draft(
                     {
                         "role": "system",
                         "content": (
-                            "You are Kundli Kombat's Interpreter. Use plain language, no astrology jargon. "
+                            "You are Kundli Kombat's Interpreter. Write for a curious 10-year-old with no astrology background. "
+                            "The primary text must explain everyday meaning only: feelings, choices, habits, relationships, school/work, or handling pressure. "
+                            "Never name planets, zodiac signs, houses, aspects, transits, nakshatras, or degrees in text; those belong only in hidden evidencePlanets. "
                             "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
-                            "Do not mention a planet that is absent from placements, and include every planet named in text in evidencePlanets. "
                             "Do not invent aspects or transits. "
                             "Tone may be comfort, straight, or playful roast; never insult the real person. "
                             "Write 2-4 short sentences and do not add a disclaimer."
@@ -302,12 +306,34 @@ def _review(request: ReadingRequest, draft: InterpreterDraft) -> tuple[str, list
         "rahu",
         "ketu",
     }
+    astrology_jargon = planet_names | {
+        "aries",
+        "taurus",
+        "gemini",
+        "cancer",
+        "leo",
+        "virgo",
+        "libra",
+        "scorpio",
+        "sagittarius",
+        "capricorn",
+        "aquarius",
+        "pisces",
+        "aspect",
+        "transit",
+        "orb",
+        "nakshatra",
+        "retrograde",
+        "sidereal",
+        "ayanamsa",
+    }
     cited_planets = {name for name in planet_names if name in draft.text.lower()}
     evidence_planets = {name.lower() for name in draft.evidencePlanets}
     supplied_planets = {name.lower() for name in by_planet}
     valid = (
         bool(evidence)
         and cited_planets <= evidence_planets <= supplied_planets
+        and not any(term in draft.text.lower() for term in astrology_jargon)
         and not any(term in draft.text.lower() for term in banned)
     )
     text = draft.text.strip()

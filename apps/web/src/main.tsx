@@ -8,6 +8,7 @@ import "@fontsource/space-grotesk/600.css";
 import "./styles.css";
 import "./session.css";
 import "./battle-v2.css";
+import "./plain-language.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const FOOTER = "For reflection and fun, not fate.";
@@ -233,6 +234,42 @@ function TypedReferee({ text }: { text: string }) {
   </motion.p>;
 }
 
+function AstrologyDetails({ items, compact = false }: { items: string[]; compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return null;
+  return <div className={`astrology-details ${compact ? "compact" : ""}`}>
+    <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      {open ? "Hide astrology details" : "See the astrology behind this"}
+    </button>
+    <AnimatePresence>{open && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+      {items.map((item) => <span key={item}>{item}</span>)}
+    </motion.div>}</AnimatePresence>
+  </div>;
+}
+
+const DRIVE_MEANINGS: Record<string, string> = {
+  Aries: "Starts quickly and learns by doing", Taurus: "Builds steadily and values reliability",
+  Gemini: "Stays curious and explores many ideas", Cancer: "Protects people and notices feelings",
+  Leo: "Brings warmth, courage, and creative energy", Virgo: "Notices details and improves what is not working",
+  Libra: "Looks for fairness and common ground", Scorpio: "Feels deeply and keeps going when things get hard",
+  Sagittarius: "Chases freedom, learning, and adventure", Capricorn: "Sets serious goals and works patiently",
+  Aquarius: "Thinks differently and improves the group", Pisces: "Leads with imagination and kindness",
+};
+const FEELING_MEANINGS: Record<string, string> = {
+  Aries: "Feels quickly and speaks honestly", Taurus: "Resets through calm, comfort, and steady people",
+  Gemini: "Understands feelings by talking them through", Cancer: "Cares deeply and remembers emotional moments",
+  Leo: "Needs warmth, loyalty, and room to express joy", Virgo: "Shows care by helping and solving problems",
+  Libra: "Feels best when things are peaceful and fair", Scorpio: "Feels intensely, even when keeping it private",
+  Sagittarius: "Resets with space, honesty, and hope", Capricorn: "Stays composed and shows care through actions",
+  Aquarius: "Needs breathing room before feelings make sense", Pisces: "Picks up moods easily and recharges in quiet",
+};
+
+function plainIdentity(player: Player) {
+  const drive = DRIVE_MEANINGS[player.big3.sun] ?? "Moves through life in a distinctive way";
+  const feelings = FEELING_MEANINGS[player.big3.moon] ?? "Has a personal rhythm for handling feelings";
+  return `${drive}. ${feelings}.`;
+}
+
 async function resultCardBlob(result: BattleResult): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = 1080; canvas.height = 1350;
@@ -364,15 +401,11 @@ function Onboarding({ onReady, challenged = false }: { onReady: (player: Player)
       <p className="eyebrow">Cosmic identity unlocked</p>
       <motion.section className={`identity-card ${stage === "ready" ? "is-revealed" : ""}`} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
         <div className="card-noise" />
-        <header><span>KUNDLI KOMBAT / ID 001</span><span>{player.chartMode === "solar" ? "SOLAR CHART" : "LAHIRI SIDEREAL"}</span></header>
+        <header><span>KUNDLI KOMBAT / ID 001</span><span>YOUR PERSONAL SKY MAP</span></header>
         <div className="identity-glyph">☉</div>
-        <div className="big-three">
-          <div><span>Sun</span><strong>{player.big3.sun}</strong></div>
-          <div><span>Moon</span><strong>{player.big3.moon}</strong></div>
-          <div><span>Rising</span><strong>{player.big3.rising}</strong></div>
-        </div>
-        <p className="identity-line">“{player.identityLine}”</p>
-        <footer><span>{player.nakshatra}</span><span>REFLECTION, NOT FATE</span></footer>
+        <p className="identity-line">“{plainIdentity(player)}”</p>
+        <AstrologyDetails compact items={[`Sun sign · ${player.big3.sun}`, `Moon sign · ${player.big3.moon}`, `Rising sign · ${player.big3.rising}`, `Moon mansion · ${player.nakshatra}`]} />
+        <footer><span>PLAIN-LANGUAGE VIEW</span><span>REFLECTION, NOT FATE</span></footer>
         {stage === "reveal" && <div className="card-cover"><span>YOUR SKY IS READY</span><strong>Hold to reveal</strong></div>}
       </motion.section>
       {stage === "reveal" ? (
@@ -451,7 +484,7 @@ function Oracle({ player, onClose, autoListen = false }: { player: Player; onClo
       <motion.section className="oracle" initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} role="dialog" aria-modal="true" aria-labelledby="oracle-title">
         <header><div><span className="eyebrow">The office is listening</span><h2 id="oracle-title">ASK THE ORACLE</h2></div><button aria-label="Close Oracle" onClick={onClose}><X /></button></header>
         <div className="tone-dial" aria-label="Oracle tone">{(["comfort", "straight", "roast"] as Tone[]).map((item) => <button className={tone === item ? "active" : ""} onClick={() => setTone(item)} key={item}>{item}</button>)}</div>
-        {messages.length > 0 && <div className="oracle-thread">{messages.map((message, index) => <div className="oracle-turn" key={`${message.question}-${index}`}><div className="user-bubble"><span>YOU</span><p>{message.question}</p></div><motion.div className={`oracle-answer ${message.answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="answer-head"><span>{message.answer.refused ? "POLICY SENTINEL" : `INTERPRETER · TURN ${index + 1}`}</span><button type="button" className="voice-control compact" aria-label="Play Oracle answer" onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(message.answer.text, "oracle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></div><p>{message.answer.text}</p>{message.answer.evidence.length > 0 && <div>{message.answer.evidence.map((item) => <small key={item.planet}>{item.planet} · {item.sign}</small>)}</div>}<footer>{message.answer.latencyMs}ms · ${message.answer.costUsd.toFixed(4)} · memory + Manager reviewed</footer></motion.div></div>)}</div>}
+        {messages.length > 0 && <div className="oracle-thread">{messages.map((message, index) => <div className="oracle-turn" key={`${message.question}-${index}`}><div className="user-bubble"><span>YOU</span><p>{message.question}</p></div><motion.div className={`oracle-answer ${message.answer.refused ? "refusal" : ""}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><div className="answer-head"><span>{message.answer.refused ? "POLICY SENTINEL" : `PLAIN-LANGUAGE GUIDE · TURN ${index + 1}`}</span><button type="button" className="voice-control compact" aria-label="Play Oracle answer" onClick={() => narration.state === "playing" ? narration.stop() : narration.speak(message.answer.text, "oracle")} disabled={narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></div><p>{message.answer.text}</p><AstrologyDetails compact items={message.answer.evidence.map((item) => `${item.planet} in ${item.sign}`)} /><footer>{message.answer.latencyMs}ms · ${message.answer.costUsd.toFixed(4)} · memory + Manager reviewed</footer></motion.div></div>)}</div>}
         <form onSubmit={ask}>
           <div className="oracle-input">
             <textarea required value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={messages.length ? "Ask a follow-up… I remember this conversation." : "What’s really on your mind?"} />
@@ -480,15 +513,15 @@ function Today({ player, onAsk, onBattle, onNewSession }: { player: Player; onAs
     api<Reading>("/reading", { method: "POST", body: JSON.stringify({ playerId: player.playerId, kind: "daily", chart: player.chart, tone: "straight", lang: "en" }) })
       .then(setReading).finally(() => setLoading(false));
   }, [player]);
-  const ticker = player.chart.placements.slice(0, 6);
+  const plainTicker = ["HOW YOU CONNECT", "HOW YOU GET THINGS DONE", "HOW YOU HANDLE SURPRISES"];
   return <div className="today-page">
-    <div className="chart-ticker"><div>{[...ticker, ...ticker].map((item, i) => <span key={`${item.planet}-${i}`}>{item.planet.toUpperCase()} {Math.round(item.degree)}° {item.sign.toUpperCase()} <b>✦</b></span>)}</div></div>
+    <div className="chart-ticker"><div>{[...plainTicker, ...plainTicker].map((item, i) => <span key={`${item}-${i}`}>{item} <b>✦</b></span>)}</div></div>
     <section className="today-hero">
-      <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · Lahiri sidereal · evidence checked</p><button className="text-button new-session-button" type="button" onClick={onNewSession}><RotateCcw size={15} /> New session</button></div>
-      <div className="weather-card"><header><span>INTERPRETER BRIEF</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><div className="evidence-row">{reading?.evidence.map((item) => <span key={item.planet}>{item.planet} / {item.sign}</span>)}</div><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>
+      <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · explained in everyday language</p><button className="text-button new-session-button" type="button" onClick={onNewSession}><RotateCcw size={15} /> New session</button></div>
+      <div className="weather-card"><header><span>WHAT THIS MEANS FOR YOU</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><AstrologyDetails items={reading?.evidence.map((item) => `${item.planet} in ${item.sign}`) ?? []} /><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>
     </section>
     <div className="ask-bar"><button type="button" className="ask-main" onClick={() => onAsk(false)}><Sparkles size={18} /> Ask the office anything…</button><button type="button" className="ask-mic" aria-label="Ask the Oracle with microphone" onClick={() => onAsk(true)}><Mic size={18} /></button></div>
-    <section className="identity-strip"><div><span>YOUR BIG THREE</span><strong>{player.big3.sun} / {player.big3.moon} / {player.big3.rising}</strong></div><div><span>MOON MANSION</span><strong>{player.nakshatra}</strong></div><button type="button" className="mint" onClick={onBattle}><span>NEXT MOVE</span><strong>Battle a celebrity →</strong></button></section>
+    <section className="identity-strip"><div><span>HOW YOU MOVE</span><strong>{DRIVE_MEANINGS[player.big3.sun] ?? "Your own way"}</strong></div><div><span>HOW YOU RESET</span><strong>{FEELING_MEANINGS[player.big3.moon] ?? "Your own rhythm"}</strong><AstrologyDetails compact items={[`Sun sign · ${player.big3.sun}`, `Moon sign · ${player.big3.moon}`, `Rising sign · ${player.big3.rising}`, `Moon mansion · ${player.nakshatra}`]} /></div><button type="button" className="mint" onClick={onBattle}><span>NEXT MOVE</span><strong>Battle a celebrity →</strong></button></section>
   </div>;
 }
 
@@ -642,7 +675,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     Love: ["❤", "♡", "✦"], Career: ["💼", "🪙", "✦"], Chaos: ["🔥", "⚡", "✹"],
   };
   const roundLabels: Record<string, string> = {
-    Love: "VENUS / MOON HARMONY", Career: "SATURN / JUPITER / SUN", Chaos: "MARS / URANUS FRICTION",
+    Love: "HOW YOU CARE AND CONNECT", Career: "HOW YOU SET GOALS AND GET THINGS DONE", Chaos: "HOW YOU HANDLE PRESSURE AND SURPRISES",
   };
   const currentRound = result?.rounds[roundIndex];
   const hasImpact = roundPhase === "impact" || roundPhase === "commentary";
@@ -668,13 +701,13 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     <header className="arena-head"><div><p className="eyebrow">The Arena / First battle</p><h1>PICK YOUR<br /><em>PROBLEM.</em></h1></div><div className="arena-rule"><span>HOUSE RULES</span><div>{(["friendly", "savage"] as const).map((item) => <button key={item} className={tone === item ? "active" : ""} onClick={() => setTone(item)}>{item}</button>)}</div></div></header>
     {!result && <>
       {!challenge && <div className="opponent-tabs"><button className={opponentMode === "celebrity" ? "active" : ""} onClick={() => { setOpponentMode("celebrity"); setKnownPreview(null); }}>Famous personality</button><button className={opponentMode === "known" ? "active" : ""} onClick={() => setOpponentMode("known")}>Someone I know</button></div>}
-      {!challenge && opponentMode === "celebrity" && <><form className="linkup-search" onSubmit={verifyCelebrity}><div><span>POWERED BY LINKUP</span><strong>Can’t find them? Verify any celebrity from live web sources.</strong></div><input required minLength={2} value={celebrityQuery} onChange={(event) => setCelebrityQuery(event.target.value)} placeholder="Enter full celebrity name" /><button disabled={verifyingCelebrity}>{verifyingCelebrity ? "Researching…" : "Verify with Linkup"}</button></form><div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>{item.verifiedBy ? "LINKUP ✓" : `0${index + 1}`}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{item.big3.sun} Sun / {item.big3.moon} Moon</i>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>View verification source ↗</a>}</button>)}</div></>}
+      {!challenge && opponentMode === "celebrity" && <><form className="linkup-search" onSubmit={verifyCelebrity}><div><span>POWERED BY LINKUP</span><strong>Can’t find them? Verify any celebrity from live web sources.</strong></div><input required minLength={2} value={celebrityQuery} onChange={(event) => setCelebrityQuery(event.target.value)} placeholder="Enter full celebrity name" /><button disabled={verifyingCelebrity}>{verifyingCelebrity ? "Researching…" : "Verify with Linkup"}</button></form><div className="celeb-grid">{celebrities.map((item, index) => <button key={item.name} className={selected === item.name ? "selected" : ""} onClick={() => setSelected(item.name)}><span>{item.verifiedBy ? "LINKUP ✓" : `0${index + 1}`}</span><strong>{item.name}</strong><small>{item.place} · time approximate</small><i>{DRIVE_MEANINGS[item.big3.sun] ?? "Brings a distinctive style to the fight"}</i>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>View verification source ↗</a>}</button>)}</div><AstrologyDetails compact items={opponent ? [`Sun sign · ${opponent.big3.sun}`, `Moon sign · ${opponent.big3.moon}`] : []} /></>}
       {!challenge && opponentMode === "known" && !knownPreview && <form className="known-form" onSubmit={prepareKnown}><div className="known-form-head"><div><span>PRIVATE COMPATIBILITY</span><h2>Battle your partner or friend</h2></div><small>Calculated for this battle only. Their birth details are not saved.</small></div><div className="known-fields"><label><span>Their name</span><input required value={knownName} onChange={(event) => setKnownName(event.target.value)} placeholder="Wife, husband, partner, friend…" /></label><label><span>Birth date</span><input required type="date" value={knownDob} onChange={(event) => setKnownDob(event.target.value)} /></label><label><span>Birth time</span><input required={!knownUnknown} disabled={knownUnknown} type="time" value={knownTob} onChange={(event) => setKnownTob(event.target.value)} /></label><label className="known-place"><span>Birth place</span><div className="input-icon"><Search size={17} /><input required value={knownPlace?.label ?? knownPlaceQuery} onChange={(event) => { setKnownPlace(null); setKnownPlaceQuery(event.target.value); }} placeholder="Start typing a city" />{knownFinding && <i />}</div>{(knownPlaces.length > 0 || knownSuggestions.length > 0) && <div className="place-menu">{knownPlaces.map((item) => <button type="button" key={item.id} onClick={() => { setKnownPlace(item); setKnownPlaces([]); setKnownSuggestions([]); }}><strong>{item.name}</strong><span>{item.country} · {item.timezone}</span></button>)}{knownPlaces.length === 0 && knownSuggestions.map((item) => <button type="button" key={item} onClick={() => setKnownPlaceQuery(item)}><strong>{item}</strong><span>Search nearest city</span></button>)}</div>}</label></div><label className="check-row"><input type="checkbox" checked={knownUnknown} onChange={(event) => { setKnownUnknown(event.target.checked); if (event.target.checked) setKnownTob(""); }} /><span><Check size={13} /> Birth time unknown</span></label><button className="primary-button" disabled={loading}>{loading ? "Calculating their fighter…" : "Create compatibility fighter"}<ArrowRight size={18} /></button></form>}
       {playerStats && (opponent || challengeStats || knownPreview) && <div className="fighter-grid"><div>{fighterCard("YOU", playerStats, "p1")}</div><span className="fighter-vs">VS</span><div>{fighterCard(challenge ? "CHALLENGER" : knownPreview ? knownPreview.name : opponent!.name, challenge ? challengeStats! : knownPreview ? knownPreview.stats : opponent!.stats, "p2")}</div></div>}
       {knownPreview?.timeNotice && <p className="time-notice arena-time-notice">{knownPreview.timeNotice}</p>}
       {error && <p className="form-error">{error}</p>}
       {(challenge || opponentMode === "celebrity" || knownPreview) && <button className="primary-button fight-button" disabled={loading || (!selected && !challenge && !knownPreview)} onClick={fight}>{loading ? "Charts entering the ring…" : challenge ? "Accept challenge" : knownPreview ? `Check compatibility with ${knownPreview.name}` : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>}
-      {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
+      {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Comparing real chart patterns · scoring three rounds · Referee reviewing</p></div>}
     </>}
     {result && currentRound && <motion.div className={`fight-v2 ${currentRound.name.toLowerCase()} ${roundPhase === "impact" && currentRound.name === "Chaos" ? "screen-shake" : ""}`} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
       {roundPhase !== "complete" ? <>
@@ -701,7 +734,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
         <div className="fight-commentary">
           <div className="round-pips">{result.rounds.map((round, index) => <i className={index < roundIndex || (index === roundIndex && hasImpact) ? "done" : index === roundIndex ? "active" : ""} key={round.name} />)}</div>
           {roundPhase === "commentary" ? <TypedReferee key={`${roundIndex}-${currentRound.line}`} text={currentRound.line} /> : <p>{roundPhase === "banner" ? "THE ROUND IS LOCKED…" : roundPhase === "clash" ? "FIGHTERS ENGAGED…" : `${currentRound.p1Score} — ${currentRound.p2Score}`}</p>}
-          {roundPhase === "commentary" && currentRound.aspects.length > 0 && <small>{currentRound.aspects.join(" · ")}</small>}
+          {roundPhase === "commentary" && <AstrologyDetails compact items={currentRound.aspects} />}
         </div>
         {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
       </> : <motion.section className="ko-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -709,6 +742,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
         <motion.div className="ko-avatar" initial={{ scale: .65, y: 60 }} animate={{ scale: 1.16, y: 0 }} transition={{ type: "spring", delay: .2 }}><FighterAvatar seed={result.winner === "p2" ? result.opponent : player.playerId} celebrity={result.winner === "p2" && isCelebrityOpponent} alt="Battle winner" /></motion.div>
         <span>🏆 COSMIC VERDICT</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3>
         <strong>{result.verdictPct}% COMPATIBILITY</strong><p>“{result.prediction}”</p>
+        <AstrologyDetails compact items={result.rounds.flatMap((round) => round.aspects.map((detail) => `${round.name}: ${detail}`))} />
         <motion.div className="mint-card" initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ delay: .45, duration: .7 }}><span>MINTED TO YOUR DECK</span><b>SCORECARD / {result.cardId.slice(-8)}</b><small>YOU {runningScore[0]}—{runningScore[1]} {result.opponent}</small></motion.div>
         <div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy result</button><button onClick={copyChallenge}><Sparkles size={17} /> Challenge a friend</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}
         <button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button>
@@ -743,7 +777,7 @@ function AppShell({ player, challenge, onNewSession }: { player: Player; challen
     <nav className="app-nav"><Brand /><div>{(["today", "battle", "you", "manage"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div><button className="level-chip">LV 01 · ROOKIE</button></nav>
     {tab === "today" && <Today player={player} onAsk={openOracle} onBattle={() => setTab("battle")} onNewSession={onNewSession} />}
     {tab === "battle" && <BattleArena player={player} challenge={challenge} />}
-    {tab === "you" && <section className="coming"><span>YOUR IDENTITY</span><h1>{player.big3.sun}<br /><em>{player.big3.moon}</em></h1><p>{player.identityLine}</p><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
+    {tab === "you" && <section className="coming"><span>YOUR IDENTITY · PLAIN LANGUAGE</span><h1>THIS IS<br /><em>YOUR STYLE</em></h1><p>{plainIdentity(player)}</p><AstrologyDetails items={[`Sun sign · ${player.big3.sun}`, `Moon sign · ${player.big3.moon}`, `Rising sign · ${player.big3.rising}`, `Moon mansion · ${player.nakshatra}`]} /><button className="primary-button" onClick={() => setTab("today")}><ChevronLeft size={18} /> Back to today</button></section>}
     {tab === "manage" && <Management />}
     <AnimatePresence>{oracle && <Oracle player={player} autoListen={oracleVoice} onClose={() => { setOracle(false); setOracleVoice(false); }} />}</AnimatePresence>
   </main>;
