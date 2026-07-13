@@ -16,6 +16,16 @@ class VoiceUnavailable(RuntimeError):
     pass
 
 
+def _voice_settings(kind: Literal["daily", "battle", "oracle"]) -> dict[str, float | bool]:
+    return {
+        "stability": 0.48 if kind == "battle" else 0.62,
+        "similarity_boost": 0.78,
+        "style": 0.30 if kind == "battle" else 0.14,
+        "speed": 0.88 if kind == "battle" else 0.92,
+        "use_speaker_boost": True,
+    }
+
+
 async def generate_voice(request: VoiceRequest) -> tuple[bytes, str, bool]:
     settings = get_settings()
     if not settings.elevenlabs_api_key:
@@ -29,12 +39,7 @@ async def generate_voice(request: VoiceRequest) -> tuple[bytes, str, bool]:
     payload = {
         "text": request.text.strip(),
         "model_id": settings.elevenlabs_model_id,
-        "voice_settings": {
-            "stability": 0.42 if request.kind == "battle" else 0.58,
-            "similarity_boost": 0.78,
-            "style": 0.38 if request.kind == "battle" else 0.18,
-            "use_speaker_boost": True,
-        },
+        "voice_settings": _voice_settings(request.kind),
     }
     with traced_task("comms.tts", task=f"voice.{request.kind}") as trace:
         with agent_step(

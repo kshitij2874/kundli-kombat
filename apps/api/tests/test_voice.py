@@ -3,6 +3,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from kundli_kombat.main import app
+from kundli_kombat.voice import _voice_settings
 
 
 def test_voice_route_streams_mpeg_with_trace_headers(monkeypatch: Any) -> None:
@@ -25,3 +26,12 @@ def test_voice_route_streams_mpeg_with_trace_headers(monkeypatch: Any) -> None:
 def test_voice_route_rejects_empty_text() -> None:
     response = TestClient(app).post("/voice", json={"text": "", "kind": "battle"})
     assert response.status_code == 422
+
+
+def test_voice_speed_is_readable_and_battle_is_slowest() -> None:
+    battle = _voice_settings("battle")
+    daily = _voice_settings("daily")
+
+    assert battle["speed"] == 0.88
+    assert daily["speed"] == 0.92
+    assert 0.7 <= float(battle["speed"]) < float(daily["speed"]) < 1.0

@@ -43,9 +43,9 @@ type ManagedRole = { name: string; job: string; tools: string; guardrails: strin
 
 const DEFAULT_ROLES: ManagedRole[] = [
   { name: "Desk Manager", job: "Plan the task, delegate to specialists, and review evidence before sending.", tools: "Langfuse, Convex", guardrails: "Under $0.10 · evidence required", active: true },
-  { name: "Interpreter", job: "Turn supplied chart placements into short, useful plain-language readings.", tools: "OpenAI Responses", guardrails: "No unsupported chart claims", active: true },
+  { name: "Interpreter", job: "Turn supplied chart placements into short, useful plain-language readings.", tools: "DeepSeek Chat Completions", guardrails: "No unsupported chart claims", active: true },
   { name: "Safety Sentinel", job: "Screen high-risk questions and create escalation records.", tools: "Policy rules, Convex", guardrails: "Never bypass a refusal", active: true },
-  { name: "Match Referee", job: "Narrate deterministic battle scores in a playful, slightly savage voice.", tools: "OpenAI Responses, ElevenLabs", guardrails: "Roast charts, never people", active: true },
+  { name: "Match Referee", job: "Narrate deterministic battle scores in a playful, slightly savage voice.", tools: "DeepSeek, ElevenLabs", guardrails: "Roast charts, never people", active: true },
 ];
 
 type KkSpeechResult = { 0?: { transcript?: string } };
@@ -82,15 +82,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function useNarration() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const completionRef = useRef<((completed: boolean) => void) | null>(null);
   const [state, setState] = useState<VoiceState>("idle");
   const [error, setError] = useState("");
 
   const stop = useCallback(() => {
+    const complete = completionRef.current;
+    completionRef.current = null;
     audioRef.current?.pause();
     audioRef.current = null;
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = null;
     setState("idle");
+    complete?.(false);
   }, []);
 
   const speak = useCallback(async (text: string, kind: VoiceKind) => {
@@ -110,15 +114,34 @@ function useNarration() {
       const audio = new Audio(objectUrl);
       audioRef.current = audio;
       audio.onplay = () => setState("playing");
-      audio.onended = stop;
-      audio.onerror = () => {
-        setError("The voice note could not play. Tap again to retry.");
-        setState("error");
-      };
-      await audio.play();
+      return await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (completed: boolean, message = "") => {
+          if (settled) return;
+          settled = true;
+          completionRef.current = null;
+          audioRef.current = null;
+          if (objectUrlRef.current === objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+            objectUrlRef.current = null;
+          }
+          if (message) {
+            setError(message);
+            setState("error");
+          } else {
+            setState("idle");
+          }
+          resolve(completed);
+        };
+        completionRef.current = (completed) => finish(completed);
+        audio.onended = () => finish(true);
+        audio.onerror = () => finish(false, "The voice note could not play. Tap again to retry.");
+        void audio.play().catch(() => finish(false, "The voice note could not play. Tap again to retry."));
+      });
     } catch {
       setError("The ElevenLabs voice desk is briefly unavailable. Tap to retry.");
       setState("error");
+      return false;
     }
   }, [stop]);
 
@@ -548,16 +571,35 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   }
   useEffect(() => {
     if (!result || roundPhase === "complete") return;
-    if (roundPhase === "intro") {
-      const timer = window.setTimeout(() => setRoundPhase("scores"), 1100);
-      return () => window.clearTimeout(timer);
-    }
-    void narration.speak(result.rounds[roundIndex].line, "battle");
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const wait = (milliseconds: number) => new Promise<void>((resolve) => {
+      timer = window.setTimeout(resolve, milliseconds);
+    });
+    const advance = () => {
       if (roundIndex === result.rounds.length - 1) setRoundPhase("complete");
       else { setRoundIndex((value) => value + 1); setRoundPhase("intro"); }
-    }, 4200);
-    return () => window.clearTimeout(timer);
+    };
+    if (roundPhase === "intro") {
+      timer = window.setTimeout(() => setRoundPhase("scores"), 1600);
+      return () => window.clearTimeout(timer);
+    }
+    const line = result.rounds[roundIndex].line;
+    void (async () => {
+      const completed = await narration.speak(line, "battle");
+      if (cancelled) return;
+      if (!completed) {
+        const readableFallback = Math.min(14000, Math.max(6500, line.split(/\s+/).length * 400));
+        await wait(readableFallback);
+      } else {
+        await wait(1200);
+      }
+      if (!cancelled) advance();
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [result, roundIndex, roundPhase]);
   const revealedRounds = result ? result.rounds.slice(0, roundIndex + (roundPhase === "intro" ? 0 : 1)) : [];
   const runningScore = revealedRounds.reduce((score, round) => {
