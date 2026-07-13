@@ -128,8 +128,14 @@ canvas {
   }
 
   .oracle {
+    position: fixed;
+    inset: 0;
     width: 100%;
-    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
   }
 
   .oracle h2 {
