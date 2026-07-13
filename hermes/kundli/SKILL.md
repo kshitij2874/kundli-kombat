@@ -18,10 +18,12 @@ metadata:
 
 Operate Kundli Kombat inside a Hermes Gateway Telegram conversation. Hermes owns the conversation and Telegram transport; the public FastAPI agency owns chart calculations, geocoding, readings, policy decisions, escalation records, battle scores, and observability.
 
+The FastAPI Manager, Interpreter, and Referee use DeepSeek through its OpenAI-compatible Chat Completions endpoint. Hermes uses its native `deepseek` provider for conversation planning; all Kundli product facts and outputs still come from the structured `/hermes` API contract.
+
 Always call the repo helper, which sends `POST /hermes` to:
 
 ```text
-https://thomas-brave-obligation-knowing.trycloudflare.com
+https://acquired-reflected-baker-templates.trycloudflare.com
 ```
 
 Never call Telegram Bot API directly. Never calculate a chart, placement, daily reading, Oracle answer, or battle score yourself. Never include a token or read a repo `.env` file.

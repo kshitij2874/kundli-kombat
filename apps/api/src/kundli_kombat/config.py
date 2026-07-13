@@ -14,20 +14,18 @@ class Settings(BaseSettings):
     )
 
     app_env: str = Field(default="development", alias="APP_ENV")
-    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
-    openai_sol_model: str = Field(default="gpt-5.6-sol", alias="OPENAI_SOL_MODEL")
-    openai_mini_model: str = Field(default="gpt-5-mini", alias="OPENAI_MINI_MODEL")
+    deepseek_api_key: str | None = Field(default=None, alias="DEEPSEEK_API_KEY")
+    deepseek_base_url: AnyHttpUrl = Field(
+        default="https://api.deepseek.com", alias="DEEPSEEK_BASE_URL"
+    )
+    deepseek_model: str = Field(default="deepseek-v4-flash", alias="DEEPSEEK_MODEL")
     langfuse_public_key: str | None = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     langfuse_secret_key: str | None = Field(default=None, alias="LANGFUSE_SECRET_KEY")
     langfuse_host: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_HOST")
     langfuse_base_url: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_BASE_URL")
     elevenlabs_api_key: str | None = Field(default=None, alias="ELEVENLABS_API_KEY")
-    elevenlabs_voice_id: str = Field(
-        default="JBFqnCBsd6RMkjVDRZzb", alias="ELEVENLABS_VOICE_ID"
-    )
-    elevenlabs_model_id: str = Field(
-        default="eleven_flash_v2_5", alias="ELEVENLABS_MODEL_ID"
-    )
+    elevenlabs_voice_id: str = Field(default="JBFqnCBsd6RMkjVDRZzb", alias="ELEVENLABS_VOICE_ID")
+    elevenlabs_model_id: str = Field(default="eleven_flash_v2_5", alias="ELEVENLABS_MODEL_ID")
     linkup_api_key: str | None = Field(default=None, alias="LINKUP_API_KEY")
     dodo_api_key: str | None = Field(default=None, alias="DODO_API_KEY")
     convex_url: AnyHttpUrl | None = Field(default=None, alias="CONVEX_URL")
@@ -47,7 +45,7 @@ class Settings(BaseSettings):
 
     @property
     def agency_configured(self) -> bool:
-        return bool(self.openai_api_key and self.langfuse_configured)
+        return bool(self.deepseek_api_key and self.langfuse_configured)
 
 
 @lru_cache

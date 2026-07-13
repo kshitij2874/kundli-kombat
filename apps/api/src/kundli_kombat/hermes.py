@@ -131,7 +131,7 @@ def _fingerprint(request: HermesRequest) -> str:
 def _with_footer(message: str) -> str:
     clean = message.strip()
     if clean.lower().endswith(FOOTER):
-        return f"{clean[:-len(FOOTER)]}{FOOTER}"
+        return f"{clean[: -len(FOOTER)]}{FOOTER}"
     return f"{clean} {FOOTER}"
 
 
@@ -169,7 +169,10 @@ def _success(
 
 
 def _error(
-    payload: dict[str, Any], failure: HermesFailure, *, action: str | None = None,
+    payload: dict[str, Any],
+    failure: HermesFailure,
+    *,
+    action: str | None = None,
 ) -> dict[str, Any]:
     return {
         "version": "1",
@@ -198,12 +201,12 @@ async def _identity_record(request: HermesRequest) -> dict[str, Any] | None:
         )
     except ConvexUnavailable as exc:
         raise HermesFailure(
-            503, "SERVICE_UNAVAILABLE", "Player memory is temporarily unavailable.",
+            503,
+            "SERVICE_UNAVAILABLE",
+            "Player memory is temporarily unavailable.",
             retryable=True,
         ) from exc
-    if request.playerId and (
-        not record or str(record.get("playerId")) != request.playerId
-    ):
+    if request.playerId and (not record or str(record.get("playerId")) != request.playerId):
         raise HermesFailure(
             409,
             "PLAYER_IDENTITY_MISMATCH",
@@ -270,14 +273,18 @@ async def _bind_player(request: HermesRequest, player_id: str) -> None:
         await mutation("hermes:bindIdentity", args)
     except ConvexUnavailable as exc:
         raise HermesFailure(
-            503, "SERVICE_UNAVAILABLE", "The chart was created but player memory could not be linked. Please retry status.",
+            503,
+            "SERVICE_UNAVAILABLE",
+            "The chart was created but player memory could not be linked. Please retry status.",
             retryable=True,
         ) from exc
 
 
 def _age_on(birth_date: date, today: date) -> int:
-    return today.year - birth_date.year - (
-        (today.month, today.day) < (birth_date.month, birth_date.day)
+    return (
+        today.year
+        - birth_date.year
+        - ((today.month, today.day) < (birth_date.month, birth_date.day))
     )
 
 
@@ -293,7 +300,9 @@ async def _under13_refusal(request: HermesRequest, value: OnboardInput) -> dict[
         )
     except ConvexUnavailable:
         pass
-    with traced_task("sentinel.hermes", task="hermes.onboard", player_id=request.identity.userId) as trace:
+    with traced_task(
+        "sentinel.hermes", task="hermes.onboard", player_id=request.identity.userId
+    ) as trace:
         message = _with_footer(
             "This experience is for people aged 13 and over. Please ask a parent or guardian to explore it with you."
         )
@@ -315,7 +324,9 @@ async def _onboard(request: HermesRequest, value: OnboardInput) -> dict[str, Any
         places = await search_places(value.birthPlace)
     except Exception as exc:
         raise HermesFailure(
-            502, "UPSTREAM_UNAVAILABLE", "Birth-place lookup is temporarily unavailable.",
+            502,
+            "UPSTREAM_UNAVAILABLE",
+            "Birth-place lookup is temporarily unavailable.",
             retryable=True,
         ) from exc
     if not places.results:
@@ -367,9 +378,7 @@ async def _onboard(request: HermesRequest, value: OnboardInput) -> dict[str, Any
     )
 
 
-async def _reading(
-    request: HermesRequest, value: DailyInput | OracleInput
-) -> dict[str, Any]:
+async def _reading(request: HermesRequest, value: DailyInput | OracleInput) -> dict[str, Any]:
     player_id, player = await _require_player(request)
     result = await create_reading(
         ReadingRequest(
@@ -446,13 +455,13 @@ async def _status_or_help(request: HermesRequest) -> dict[str, Any]:
         if request.action == "status":
             message = (
                 "Kundli Kombat is ready. Your chart is connected."
-                if player_id else
-                "Kundli Kombat is ready. To begin, send your name, birth date (YYYY-MM-DD), "
+                if player_id
+                else "Kundli Kombat is ready. To begin, send your name, birth date (YYYY-MM-DD), "
                 "local birth time (HH:MM or unknown), and birth city plus country."
             )
             data = {
                 "service": "kundli-kombat-agency",
-                "agencyReady": bool(settings.openai_api_key and langfuse_authenticated()),
+                "agencyReady": bool(settings.deepseek_api_key and langfuse_authenticated()),
                 "hasPlayer": bool(player_id),
                 "capabilities": ["onboard", "daily", "oracle", "celebrity_battle"],
             }
@@ -469,10 +478,19 @@ async def _status_or_help(request: HermesRequest) -> dict[str, Any]:
             )
             data = {
                 "commands": [
-                    {"action": "onboard", "usage": "Share name, birth date, local birth time (or unknown), and birth place."},
+                    {
+                        "action": "onboard",
+                        "usage": "Share name, birth date, local birth time (or unknown), and birth place.",
+                    },
                     {"action": "daily", "usage": "Ask for today's reading after onboarding."},
-                    {"action": "oracle", "usage": "Ask a question and choose comfort, straight, or roast tone."},
-                    {"action": "celebrity_battle", "usage": "Choose a listed celebrity and friendly or savage tone."},
+                    {
+                        "action": "oracle",
+                        "usage": "Ask a question and choose comfort, straight, or roast tone.",
+                    },
+                    {
+                        "action": "celebrity_battle",
+                        "usage": "Choose a listed celebrity and friendly or savage tone.",
+                    },
                 ]
             }
     return _success(

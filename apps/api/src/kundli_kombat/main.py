@@ -11,10 +11,20 @@ from .battle_stats import fighter_stats
 from .geocoding import search_places
 from .hermes import process_hermes
 from .models import (
-    BattleRequest, BattleResponse, CelebritySummary, CelebrityVerifyRequest, ChartPreviewResponse,
-    FighterStatsRequest, FighterStatsResponse,
-    ConversationTurn, OnboardRequest, OnboardResponse, VerifiedCelebrity,
-    PlaceSearchResponse, ReadingRequest, ReadingResponse,
+    BattleRequest,
+    BattleResponse,
+    CelebritySummary,
+    CelebrityVerifyRequest,
+    ChartPreviewResponse,
+    FighterStatsRequest,
+    FighterStatsResponse,
+    ConversationTurn,
+    OnboardRequest,
+    OnboardResponse,
+    VerifiedCelebrity,
+    PlaceSearchResponse,
+    ReadingRequest,
+    ReadingResponse,
 )
 from .onboarding import onboard
 from .ephemeris import calculate_chart
@@ -53,7 +63,7 @@ def health() -> dict[str, object]:
             "traceExported": trace.exported,
             "agencyConfigured": settings.agency_configured,
             "langfuseAuthenticated": langfuse_authenticated(),
-            "agencyReady": bool(settings.openai_api_key and langfuse_authenticated()),
+            "agencyReady": bool(settings.deepseek_api_key and langfuse_authenticated()),
             "convexConfigured": settings.convex_url is not None,
         }
     response["latencyMs"] = trace.latency_ms
@@ -102,7 +112,8 @@ async def oracle(request: ReadingRequest) -> ReadingResponse:
             rows = await query("readings:recentOracle", {"playerId": request.playerId, "limit": 6})
             request.history = [
                 ConversationTurn(question=str(row["question"]), answer=str(row["text"]))
-                for row in rows if isinstance(row, dict) and row.get("question") and row.get("text")
+                for row in rows
+                if isinstance(row, dict) and row.get("question") and row.get("text")
             ]
         except ConvexUnavailable:
             request.history = []
@@ -136,8 +147,12 @@ def calculate_fighter_stats(request: FighterStatsRequest) -> FighterStatsRespons
 def chart_preview(request: OnboardRequest) -> ChartPreviewResponse:
     """Calculate an ephemeral comparison chart without storing the person's birth data."""
     chart = calculate_chart(
-        dob=request.dob, tob=request.tob, tob_unknown=request.tobUnknown,
-        lat=request.lat, lon=request.lon, tz=request.tz,
+        dob=request.dob,
+        tob=request.tob,
+        tob_unknown=request.tobUnknown,
+        lat=request.lat,
+        lon=request.lon,
+        tz=request.tz,
     )
     return ChartPreviewResponse(
         name=request.name,
@@ -146,7 +161,8 @@ def chart_preview(request: OnboardRequest) -> ChartPreviewResponse:
         chartMode="solar" if request.tobUnknown else "birth-time",
         timeNotice=(
             "Birth time unknown: compatibility uses an approximate noon solar chart."
-            if request.tobUnknown else None
+            if request.tobUnknown
+            else None
         ),
     )
 

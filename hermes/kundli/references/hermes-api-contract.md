@@ -2,7 +2,7 @@
 
 Contract version: `1`
 
-Base URL: `https://thomas-brave-obligation-knowing.trycloudflare.com`
+Base URL: `https://acquired-reflected-baker-templates.trycloudflare.com`
 
 Hermes Gateway calls exactly one application endpoint:
 

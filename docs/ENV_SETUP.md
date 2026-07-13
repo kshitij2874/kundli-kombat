@@ -6,9 +6,9 @@ Never paste secret values into source files, chat, the web bundle, or Git histor
 
 Create `apps/api/.env` by copying `apps/api/.env.example`, then replace the placeholders:
 
-- `OPENAI_API_KEY`: OpenAI project key funded by the buildathon grant.
-- `OPENAI_SOL_MODEL`: keep `gpt-5.6-sol` for Manager, Interpreter, and Referee quality.
-- `OPENAI_MINI_MODEL`: defaults to `gpt-5-mini` for low-cost routing, policy support, and comms; change only if the event grant exposes a different mini model.
+- `DEEPSEEK_API_KEY`: DeepSeek server key used only by FastAPI.
+- `DEEPSEEK_BASE_URL`: keep `https://api.deepseek.com` unless DeepSeek changes its official endpoint.
+- `DEEPSEEK_MODEL`: defaults to `deepseek-v4-flash` for low-latency Manager, Interpreter, and Referee calls.
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`: values from the same Langfuse project. Use the exact region-specific base URL shown by Langfuse.
 - `ELEVENLABS_API_KEY`: workspace key used only by the API for TTS.
 - `LINKUP_API_KEY`: server-side key for celebrity lookup and news garnish.
@@ -23,7 +23,7 @@ Restart FastAPI after changing the file. `GET /health` must then return `"traceE
 Run `npx convex dev` once and complete its login/project prompts. Put the printed deployment URL in the two runtime files above. Add server secrets directly to Convex, one at a time:
 
 ```sh
-npx convex env set OPENAI_API_KEY
+npx convex env set DEEPSEEK_API_KEY
 npx convex env set LANGFUSE_PUBLIC_KEY
 npx convex env set LANGFUSE_SECRET_KEY
 npx convex env set LANGFUSE_HOST

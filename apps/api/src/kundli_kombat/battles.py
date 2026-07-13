@@ -4,9 +4,9 @@ from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from .agency import UsageCost, _cost, _openai_client
+from .agency import UsageCost, _cost, _model_client
 from .battle_math import ScoredRound, score_battle
 from .battle_stats import fighter_stats
 from .config import get_settings
@@ -33,8 +33,12 @@ def _celebrity_chart(name: str) -> tuple[dict[str, object], dict[str, object]]:
     if seed is None:
         raise ValueError(f"Unknown celebrity: {name}")
     chart = calculate_chart(
-        dob=date.fromisoformat(str(seed["dob"])), tob=None, tob_unknown=True,
-        lat=float(seed["lat"]), lon=float(seed["lon"]), tz=str(seed["tz"]),
+        dob=date.fromisoformat(str(seed["dob"])),
+        tob=None,
+        tob_unknown=True,
+        lat=float(seed["lat"]),
+        lon=float(seed["lon"]),
+        tz=str(seed["tz"]),
     )
     return seed, chart
 
@@ -43,11 +47,15 @@ def list_celebrities() -> list[CelebritySummary]:
     result = []
     for seed in _seeds():
         _, chart = _celebrity_chart(str(seed["name"]))
-        result.append(CelebritySummary(
-            name=str(seed["name"]), place=str(seed["place"]), dob=str(seed["dob"]),
-            big3={key: str(value) for key, value in chart["big3"].items()},
-            stats=fighter_stats(chart),
-        ))
+        result.append(
+            CelebritySummary(
+                name=str(seed["name"]),
+                place=str(seed["place"]),
+                dob=str(seed["dob"]),
+                big3={key: str(value) for key, value in chart["big3"].items()},
+                stats=fighter_stats(chart),
+            )
+        )
     return result
 
 
@@ -60,39 +68,84 @@ def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> Re
         elif item.p1_score > item.p2_score:
             result = f"You take it {item.p1_score} to {item.p2_score}. Cosmic flex confirmed."
         else:
-            result = f"{opponent} takes it {item.p2_score} to {item.p1_score}. That one left a crater."
+            result = (
+                f"{opponent} takes it {item.p2_score} to {item.p1_score}. That one left a crater."
+            )
         lines.append(f"{icons[item.name]} {result}")
     prediction = f"Five rounds down: you and {opponent} just gave the cosmos a proper main event."
     if tone == "savage":
-        prediction = f"You and {opponent} could turn choosing a restaurant into a three-act cosmic trial."
+        prediction = (
+            f"You and {opponent} could turn choosing a restaurant into a three-act cosmic trial."
+        )
     return RefereeDraft(lines=lines, prediction=prediction)
 
 
-def _referee(rounds: list[ScoredRound], opponent: str, tone: str) -> tuple[RefereeDraft, UsageCost]:
+def _referee(
+    rounds: list[ScoredRound], opponent: str, tone: str, player_id: str
+) -> tuple[RefereeDraft, UsageCost]:
     settings = get_settings()
     fallback = _fallback_referee(rounds, opponent, tone)
     if not settings.agency_configured or not langfuse_authenticated():
         return fallback, UsageCost()
-    with agent_step("referee.narrate", {"task": "battle", "model": settings.openai_sol_model, "opponent": opponent}) as step:
-        response = _openai_client().responses.parse(
-            model=settings.openai_sol_model,
-            instructions=(
-                "You are the Oracle Commentator. Narrate exactly five supplied deterministic rounds in order: Love, Career, Luck, Fire, Chaos. "
-                "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
-                "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
-                "End with one harmless one-line cosmic verdict."
-            ),
-            input=json.dumps({
-                "opponent": opponent, "tone": tone,
-                "rounds": [{"name": item.name, "p1": item.p1_score, "p2": item.p2_score, "aspects": item.aspects} for item in rounds],
-            }),
-            text_format=RefereeDraft,
-            reasoning={"effort": "low"},
-            max_output_tokens=600,
-        )
-        cost = _cost(response, settings.openai_sol_model)
+    with agent_step(
+        "referee.narrate",
+        {
+            "task": "battle",
+            "model": settings.deepseek_model,
+            "provider": "deepseek",
+            "opponent": opponent,
+            "playerId": player_id,
+        },
+    ) as step:
+        try:
+            response = _model_client().chat.completions.create(
+                model=settings.deepseek_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are the Oracle Commentator. Narrate exactly five supplied deterministic rounds in order: Love, Career, Luck, Fire, Chaos. "
+                            "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
+                            "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
+                            "End with one harmless one-line cosmic verdict. Return JSON only with this exact shape: "
+                            '{"lines":["round 1","round 2","round 3","round 4","round 5"],"prediction":"verdict"}.'
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "opponent": opponent,
+                                "tone": tone,
+                                "rounds": [
+                                    {
+                                        "name": item.name,
+                                        "p1": item.p1_score,
+                                        "p2": item.p2_score,
+                                        "aspects": item.aspects,
+                                    }
+                                    for item in rounds
+                                ],
+                            }
+                        ),
+                    },
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=600,
+                extra_body={"thinking": {"type": "disabled"}},
+                metadata={
+                    "langfuse_observation_name": "referee.narrate",
+                    "task": "battle",
+                    "playerId": player_id,
+                    "provider": "deepseek",
+                },
+            )
+            draft = RefereeDraft.model_validate_json(response.choices[0].message.content or "{}")
+        except ValidationError:
+            return fallback, UsageCost()
+        cost = _cost(response, settings.deepseek_model)
         step.cost_usd = cost.usd
-    return response.output_parsed or fallback, cost
+    return draft, cost
 
 
 async def battle(request: BattleRequest) -> BattleResponse:
@@ -106,31 +159,50 @@ async def battle(request: BattleRequest) -> BattleResponse:
     with traced_task("manager.battle", task="battle", player_id=request.p1Id) as trace:
         with agent_step("chart.match", {"deterministic": True}):
             scored, verdict, winner = score_battle(request.p1Chart, p2_chart)
-        narration, cost = _referee(scored, opponent, request.tone)
+        narration, cost = _referee(scored, opponent, request.tone, request.p1Id)
         rounds = [
             BattleRound(
-                name=item.name, p1Score=item.p1_score, p2Score=item.p2_score,
-                compatibilityScore=item.compatibility_score, line=narration.lines[index],
+                name=item.name,
+                p1Score=item.p1_score,
+                p2Score=item.p2_score,
+                compatibilityScore=item.compatibility_score,
+                line=narration.lines[index],
                 aspects=list(item.aspects),
-            ) for index, item in enumerate(scored)
+            )
+            for index, item in enumerate(scored)
         ]
         code = "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ") for _ in range(4))
         args = {
-            "code": code, "p1Id": request.p1Id, "celebrity": request.celebrity,
-            "rounds": [item.model_dump() for item in rounds], "verdictPct": verdict,
-            "prediction": narration.prediction, "latencyMs": trace.latency_ms,
-            "costUsd": cost.usd, "langfuseTraceId": trace.trace_id,
+            "code": code,
+            "p1Id": request.p1Id,
+            "celebrity": request.celebrity,
+            "rounds": [item.model_dump() for item in rounds],
+            "verdictPct": verdict,
+            "prediction": narration.prediction,
+            "latencyMs": trace.latency_ms,
+            "costUsd": cost.usd,
+            "langfuseTraceId": trace.trace_id,
         }
         if isinstance(args.get("p2Id"), str) and str(args["p2Id"]).startswith("local-"):
             args.pop("p2Id")
         try:
-            stored = await mutation("battles:create", {key: value for key, value in args.items() if value is not None})
+            stored = await mutation(
+                "battles:create", {key: value for key, value in args.items() if value is not None}
+            )
             battle_id, card_id = str(stored["battleId"]), str(stored["cardId"])
         except ConvexUnavailable:
             battle_id, card_id = f"local-{uuid4().hex}", f"local-{uuid4().hex}"
     return BattleResponse(
-        battleId=battle_id, code=code, opponent=opponent, rounds=rounds,
-        verdictPct=verdict, prediction=narration.prediction, winner=winner,
-        cardId=card_id, traceId=trace.trace_id, traceExported=trace.exported,
-        latencyMs=trace.latency_ms, costUsd=cost.usd,
+        battleId=battle_id,
+        code=code,
+        opponent=opponent,
+        rounds=rounds,
+        verdictPct=verdict,
+        prediction=narration.prediction,
+        winner=winner,
+        cardId=card_id,
+        traceId=trace.trace_id,
+        traceExported=trace.exported,
+        latencyMs=trace.latency_ms,
+        costUsd=cost.usd,
     )
