@@ -1,0 +1,385 @@
+/* Final responsive layer: imported last so every screen shares the same safe bounds. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+.card-cover {
+  z-index: 10;
+}
+
+.arena-page,
+.manage-page,
+.coming,
+.today-hero,
+.weather-card,
+.identity-strip,
+.fighter-grid,
+.fight-v2,
+.known-form,
+.linkup-search,
+.oracle,
+.role-card {
+  min-width: 0;
+}
+
+.arena-head h1,
+.manage-page h1,
+.today-hero h1,
+.onboarding h1,
+.rewind-title,
+.coming h1 {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+  .app-shell {
+    padding-top: 14px;
+  }
+
+  .app-nav {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .app-nav > div {
+    min-width: 0;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .app-nav > div::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-nav > div button {
+    flex: 0 0 auto;
+  }
+
+  .arena-page,
+  .manage-page {
+    padding: 34px 0;
+  }
+
+  .arena-head h1,
+  .manage-page h1 {
+    font-size: clamp(62px, 20vw, 104px);
+  }
+
+  .arena-rule > div {
+    width: 100%;
+  }
+
+  .arena-rule button {
+    flex: 1;
+  }
+
+  .fight-v2 {
+    margin-top: 20px;
+    box-shadow: 5px 5px 0 #000;
+  }
+
+  .fight-stage {
+    overflow: hidden;
+  }
+
+  .fight-banner {
+    padding: 20px 10px;
+  }
+
+  .fight-banner small {
+    max-width: 90%;
+    line-height: 1.45;
+  }
+
+  .fight-commentary > p {
+    overflow-wrap: anywhere;
+  }
+
+  .ko-screen {
+    overflow: hidden;
+    padding-inline: 16px;
+  }
+
+  .ko-screen > p,
+  .mint-card {
+    width: 100%;
+  }
+
+  .share-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .share-actions button {
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .oracle {
+    width: 100%;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .oracle h2 {
+    font-size: 44px;
+  }
+
+  .oracle-answer footer,
+  .weather-card > footer {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 560px) {
+  .onboarding,
+  .app-shell {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .onboarding > nav {
+    gap: 10px;
+  }
+
+  .step-chip {
+    max-width: 52vw;
+    text-align: right;
+  }
+
+  .onboarding-grid {
+    padding-top: 42px;
+  }
+
+  .onboarding h1,
+  .today-hero h1 {
+    font-size: clamp(68px, 25vw, 98px);
+    line-height: .82;
+  }
+
+  .birth-form,
+  .known-form {
+    padding: 18px 14px;
+    box-shadow: 5px 5px 0 #000;
+  }
+
+  .place-menu {
+    right: 14px;
+    left: 14px;
+  }
+
+  .identity-card {
+    width: 100%;
+    min-height: 560px;
+    margin: 14px 0;
+    padding: 18px;
+    box-shadow: 5px 5px 0 #000;
+  }
+
+  .identity-card > header,
+  .identity-card > footer {
+    gap: 8px;
+  }
+
+  .identity-card > header span:last-child,
+  .identity-card > footer span:last-child {
+    text-align: right;
+  }
+
+  .identity-glyph,
+  .card-cover::before {
+    width: 150px;
+    height: 150px;
+  }
+
+  .identity-glyph {
+    margin: 44px auto 28px;
+    font-size: 84px;
+  }
+
+  .identity-line {
+    font-size: 16px;
+  }
+
+  .card-cover {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .card-cover strong {
+    font-size: 30px;
+  }
+
+  .chart-ticker {
+    margin-inline: -12px;
+  }
+
+  .weather-card {
+    min-height: 0;
+    padding: 20px 16px;
+    box-shadow: 5px 5px 0 #000;
+  }
+
+  .weather-card::before {
+    margin-top: -21px;
+    margin-left: -17px;
+  }
+
+  .weather-card > p {
+    margin: 30px 0 24px;
+    font-size: 18px;
+  }
+
+  .ask-main {
+    min-width: 0;
+    padding-left: 15px;
+    font-size: 14px;
+  }
+
+  .ask-main span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .celeb-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .celeb-grid button {
+    min-height: 138px;
+  }
+
+  .fighter-card h3,
+  .celeb-grid strong {
+    overflow-wrap: anywhere;
+  }
+
+  .fight-hud {
+    grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+    gap: 6px;
+    padding: 12px 8px;
+  }
+
+  .fight-round-count span {
+    display: none;
+  }
+
+  .fight-round-count strong {
+    font-size: 25px;
+  }
+
+  .hp-block strong {
+    max-width: 100%;
+    font-size: 14px;
+  }
+
+  .hp-block i {
+    height: 10px;
+  }
+
+  .fight-stage {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+    min-height: 300px;
+    padding: 28px 2%;
+  }
+
+  .avatar-fighter img {
+    width: min(40vw, 160px);
+    height: min(40vw, 160px);
+  }
+
+  .avatar-fighter b {
+    max-width: 38vw;
+    font-size: 17px;
+  }
+
+  .avatar-fighter > span {
+    padding: 3px 6px;
+    font-size: 19px;
+  }
+
+  .clash-core {
+    width: 40px;
+  }
+
+  .fight-banner strong {
+    font-size: clamp(50px, 17vw, 76px);
+  }
+
+  .fight-commentary {
+    min-height: 170px;
+    padding: 16px 10px 22px;
+  }
+
+  .ko-stamp {
+    font-size: 92px;
+  }
+
+  .ko-avatar {
+    width: 180px;
+    height: 180px;
+  }
+
+  .ko-screen h3 {
+    font-size: clamp(50px, 17vw, 76px);
+    overflow-wrap: anywhere;
+  }
+
+  .share-actions,
+  .tone-dial {
+    grid-template-columns: 1fr;
+  }
+
+  .tone-dial button {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tone-dial button:last-child {
+    border-bottom: 0;
+  }
+
+  .known-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-summary {
+    min-width: 0;
+  }
+
+  .role-card > header {
+    gap: 10px;
+  }
+
+  .role-card > header button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-nav > div button {
+    padding-inline: 7px;
+    font-size: 9px;
+  }
+
+  .identity-card {
+    min-height: 540px;
+  }
+
+  .fight-stage {
+    min-height: 270px;
+  }
+}

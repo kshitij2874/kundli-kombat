@@ -38,10 +38,8 @@ def _identity_line(big3: dict[str, str]) -> str:
     drive = drives.get(big3["sun"], "You have your own way of moving through the world")
     feeling = feelings.get(big3["moon"], "Your feelings have their own clear rhythm")
     if big3["rising"] == "Solar chart":
-        return f"{drive}. {feeling}. Your birth time is unknown, so we leave first impressions out instead of guessing."
-    return (
-        f"{drive}. {feeling}. Together, that is the energy people meet when you walk into a room."
-    )
+        return f"Dekho, {drive[0].lower()}{drive[1:]}. {feeling}. Your birth time is unknown, so we leave first impressions out instead of guessing."
+    return f"Dekho, {drive[0].lower()}{drive[1:]}. {feeling}. Together, that is the energy people meet when you walk into a room."
 
 
 async def onboard(request: OnboardRequest) -> OnboardResponse:

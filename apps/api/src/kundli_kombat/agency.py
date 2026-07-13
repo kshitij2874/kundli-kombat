@@ -192,9 +192,9 @@ def _fallback_draft(
         chosen = matched[:1] or chosen
     names = [str(item["planet"]) for item in chosen] or ["Sun"]
     tone = {
-        "comfort": "Take the gentler route today. Protect your attention before you promise it away.",
-        "straight": "Your move today is simple: say the useful thing early, then stop over-explaining.",
-        "roast": "Your brain has opened seventeen tabs. Close sixteen before calling it intuition.",
+        "comfort": "Beta, take the gentler route today. Protect your attention before you promise it away.",
+        "straight": "Dekho, today's move is simple: say the useful thing early, then stop over-explaining.",
+        "roast": "Arre, your brain has opened seventeen tabs. Close sixteen before calling it intuition.",
     }[request.tone]
     question = (
         "Start with the part you can control, then take one small next step. "
@@ -247,6 +247,9 @@ def _interpreter_draft(
                             "Every claim must be driven by a planet supplied in the chart and evidencePlanets must list those exact planet names. "
                             "Do not invent aspects or transits. "
                             "Tone may be comfort, straight, or playful roast; never insult the real person. "
+                            "Sound like a warm, trusted Indian family astrologer speaking conversational English: observant, reassuring, and gently witty. "
+                            "A natural 'dekho', 'beta', 'arre', 'wah', 'oho', 'aaj', 'thoda', or 'bas' may appear at most once when it fits. "
+                            "Never parody an accent, use stereotypes, or stuff the answer with Hinglish. Vary sentence length so it sounds spoken, not templated. "
                             "Write 2-4 short sentences and do not add a disclaimer."
                             " When recentConversation is supplied, answer the current question as a follow-up: "
                             "use only relevant prior context, do not repeat it mechanically, and never mix users."

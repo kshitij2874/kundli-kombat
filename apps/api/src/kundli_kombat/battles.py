@@ -69,13 +69,15 @@ def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> Re
     lines = []
     for item in rounds:
         if item.p1_score == item.p2_score:
-            result = f"You are evenly matched at {item.p1_score} each for {meanings[item.name]}."
+            result = (
+                f"Arre, this one is neck-and-neck: {item.p1_score} each for {meanings[item.name]}."
+            )
         elif item.p1_score > item.p2_score:
-            result = f"You win {item.p1_score} to {item.p2_score} at {meanings[item.name]}. Strong round."
+            result = f"Wah, you take it {item.p1_score} to {item.p2_score} at {meanings[item.name]}. Strong round."
         else:
-            result = f"{opponent} wins {item.p2_score} to {item.p1_score} at {meanings[item.name]}. Ouch, but clear."
+            result = f"Oho, {opponent} takes it {item.p2_score} to {item.p1_score} at {meanings[item.name]}. The result is clear."
         lines.append(f"{icons[item.name]} {result}")
-    prediction = f"You and {opponent} bring different strengths, so teamwork works best when each person gets room to lead."
+    prediction = f"Dekho, you and {opponent} bring different strengths. Give each other room to lead and this pairing can work beautifully."
     if tone == "savage":
         prediction = f"You and {opponent} could turn choosing a snack into a championship debate, then laugh about it."
     return RefereeDraft(lines=lines, prediction=prediction)
@@ -109,6 +111,9 @@ def _referee(
                             "Write for a 10-year-old with no astrology knowledge. Translate chart evidence into everyday behavior. "
                             "Never name a planet, zodiac sign, aspect, transit, orb, house, degree, or other astrology term. "
                             "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
+                            "Sound like a warm Indian astrologer calling a sports match: conversational, dramatic, affectionate, and gently witty. "
+                            "Use at most one natural word such as 'arre', 'wah', 'oho', 'beta', 'dekho', 'bas', or 'thoda' per line. "
+                            "Never parody an accent, use stereotypes, or overdo Hinglish. Avoid corporate or robotic phrases. "
                             "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
                             "End with one harmless one-line cosmic verdict. Return JSON only with this exact shape: "
                             '{"lines":["round 1","round 2","round 3"],"prediction":"verdict"}.'

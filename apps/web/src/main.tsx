@@ -9,6 +9,8 @@ import "./styles.css";
 import "./session.css";
 import "./battle-v2.css";
 import "./plain-language.css";
+import "./responsive.css";
+import { battlePower } from "./battle-ui";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const FOOTER = "For reflection and fun, not fate.";
@@ -267,7 +269,9 @@ const FEELING_MEANINGS: Record<string, string> = {
 function plainIdentity(player: Player) {
   const drive = DRIVE_MEANINGS[player.big3.sun] ?? "Moves through life in a distinctive way";
   const feelings = FEELING_MEANINGS[player.big3.moon] ?? "Has a personal rhythm for handling feelings";
-  return `${drive}. ${feelings}.`;
+  const line = player.identityLine?.trim() || `${drive}. ${feelings}.`;
+  if (/^(dekho|beta|arre|wah|oho)\b/i.test(line)) return line;
+  return `Dekho, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
 }
 
 async function resultCardBlob(result: BattleResult): Promise<Blob> {
@@ -404,7 +408,7 @@ function Onboarding({ onReady, challenged = false }: { onReady: (player: Player)
         <header><span>KUNDLI KOMBAT / ID 001</span><span>YOUR PERSONAL SKY MAP</span></header>
         <div className="identity-glyph">☉</div>
         <p className="identity-line">“{plainIdentity(player)}”</p>
-        <AstrologyDetails compact items={[`Sun sign · ${player.big3.sun}`, `Moon sign · ${player.big3.moon}`, `Rising sign · ${player.big3.rising}`, `Moon mansion · ${player.nakshatra}`]} />
+        {stage === "ready" && <AstrologyDetails compact items={[`Sun sign · ${player.big3.sun}`, `Moon sign · ${player.big3.moon}`, `Rising sign · ${player.big3.rising}`, `Moon mansion · ${player.nakshatra}`]} />}
         <footer><span>PLAIN-LANGUAGE VIEW</span><span>REFLECTION, NOT FATE</span></footer>
         {stage === "reveal" && <div className="card-cover"><span>YOUR SKY IS READY</span><strong>Hold to reveal</strong></div>}
       </motion.section>
@@ -679,8 +683,8 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   };
   const currentRound = result?.rounds[roundIndex];
   const hasImpact = roundPhase === "impact" || roundPhase === "commentary";
-  const p1Hp = !currentRound || !hasImpact ? 100 : currentRound.p1Score < currentRound.p2Score ? currentRound.p1Score : currentRound.p1Score === currentRound.p2Score ? currentRound.p1Score : 100;
-  const p2Hp = !currentRound || !hasImpact ? 100 : currentRound.p2Score < currentRound.p1Score ? currentRound.p2Score : currentRound.p1Score === currentRound.p2Score ? currentRound.p2Score : 100;
+  const p1Hp = battlePower(currentRound?.p1Score, hasImpact);
+  const p2Hp = battlePower(currentRound?.p2Score, hasImpact);
   const particleCount = currentRound ? Math.min(28, Math.max(6, 6 + Math.ceil(Math.abs(currentRound.p1Score - currentRound.p2Score) / 4))) : 0;
   const isCelebrityOpponent = !challenge && opponentMode === "celebrity";
   async function downloadCard() {
@@ -712,15 +716,15 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     {result && currentRound && <motion.div className={`fight-v2 ${currentRound.name.toLowerCase()} ${roundPhase === "impact" && currentRound.name === "Chaos" ? "screen-shake" : ""}`} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
       {roundPhase !== "complete" ? <>
         <header className="fight-hud">
-          <div className="hp-block left"><div><strong>YOU</strong><span>{Math.round(p1Hp)} HP</span></div><i><motion.b animate={{ width: `${p1Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
+          <div className="hp-block left"><div><strong>YOU</strong><span>{Math.round(p1Hp)} POWER</span></div><i><motion.b animate={{ width: `${p1Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
           <div className="fight-round-count"><span>BATTLE / {result.code}</span><strong>{roundIndex + 1} / 3</strong><small>{runningScore[0]}—{runningScore[1]}</small></div>
-          <div className="hp-block right"><div><strong>{result.opponent}</strong><span>{Math.round(p2Hp)} HP</span></div><i><motion.b animate={{ width: `${p2Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
+          <div className="hp-block right"><div><strong>{result.opponent}</strong><span>{Math.round(p2Hp)} POWER</span></div><i><motion.b animate={{ width: `${p2Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
         </header>
 
         <div className="fight-stage">
           <AnimatePresence>{roundPhase === "banner" && <motion.div className="fight-banner" key={`banner-${roundIndex}`} initial={{ x: "-120%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "120%", opacity: 0 }}><span>ROUND 0{roundIndex + 1}</span><strong>{roundIcons[currentRound.name]} {currentRound.name.toUpperCase()}</strong><small>{roundLabels[currentRound.name]}</small></motion.div>}</AnimatePresence>
 
-          <motion.div className={`avatar-fighter player ${currentRound.p1Score < currentRound.p2Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? 150 : roundPhase === "impact" ? 55 : 0, rotate: roundPhase === "impact" && currentRound.p1Score < currentRound.p2Score ? -10 : 0, scale: roundPhase === "impact" && currentRound.p1Score > currentRound.p2Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={player.playerId} alt="Your cosmic fighter" /><b>YOU</b><span>{currentRound.p1Score}</span></motion.div>
+          <motion.div className={`avatar-fighter player ${currentRound.p1Score < currentRound.p2Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? "38%" : roundPhase === "impact" ? "14%" : 0, rotate: roundPhase === "impact" && currentRound.p1Score < currentRound.p2Score ? -10 : 0, scale: roundPhase === "impact" && currentRound.p1Score > currentRound.p2Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={player.playerId} alt="Your cosmic fighter" /><b>YOU</b><span>{currentRound.p1Score}</span></motion.div>
           <div className="clash-core"><motion.strong animate={{ scale: roundPhase === "impact" ? [1, 1.8, 1] : 1, opacity: roundPhase === "banner" ? 0 : 1 }}>{roundPhase === "impact" ? "KRAK!" : "VS"}</motion.strong>
             {roundPhase === "impact" && Array.from({ length: particleCount }).map((_, index) => {
               const angle = (index / particleCount) * Math.PI * 2;
@@ -728,7 +732,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
               return <motion.i className="fight-particle" key={`${currentRound.name}-${index}`} initial={{ x: 0, y: 0, opacity: 1, scale: .5 }} animate={{ x: Math.cos(angle) * distance, y: Math.sin(angle) * distance, opacity: 0, scale: 1.35 }} transition={{ duration: .9, ease: "easeOut" }}>{roundThemes[currentRound.name][index % roundThemes[currentRound.name].length]}</motion.i>;
             })}
           </div>
-          <motion.div className={`avatar-fighter opponent ${currentRound.p2Score < currentRound.p1Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? -150 : roundPhase === "impact" ? -55 : 0, rotate: roundPhase === "impact" && currentRound.p2Score < currentRound.p1Score ? 10 : 0, scale: roundPhase === "impact" && currentRound.p2Score > currentRound.p1Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={result.opponent} celebrity={isCelebrityOpponent} alt={`${result.opponent} cosmic fighter`} /><b>{result.opponent}</b><span>{currentRound.p2Score}</span></motion.div>
+          <motion.div className={`avatar-fighter opponent ${currentRound.p2Score < currentRound.p1Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? "-38%" : roundPhase === "impact" ? "-14%" : 0, rotate: roundPhase === "impact" && currentRound.p2Score < currentRound.p1Score ? 10 : 0, scale: roundPhase === "impact" && currentRound.p2Score > currentRound.p1Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={result.opponent} celebrity={isCelebrityOpponent} alt={`${result.opponent} cosmic fighter`} /><b>{result.opponent}</b><span>{currentRound.p2Score}</span></motion.div>
         </div>
 
         <div className="fight-commentary">
