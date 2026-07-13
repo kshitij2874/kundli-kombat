@@ -7,6 +7,7 @@ import "@fontsource/space-grotesk/400.css";
 import "@fontsource/space-grotesk/600.css";
 import "./styles.css";
 import "./session.css";
+import "./battle-v2.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const FOOTER = "For reflection and fun, not fate.";
@@ -33,7 +34,7 @@ type Player = {
   timeNotice?: string;
 };
 type Reading = { text: string; evidence: Placement[]; refused: boolean; policy?: string; plan: string[]; latencyMs: number; costUsd: number };
-type FighterStats = Record<"Love" | "Career" | "Luck" | "Fire" | "Chaos", number>;
+type FighterStats = Record<"Love" | "Career" | "Chaos", number>;
 type Celebrity = { name: string; place: string; dob: string; big3: Record<string, string>; timeApproximate: boolean; stats: FighterStats; chart?: Player["chart"]; sourceUrl?: string; verifiedBy?: "Linkup" };
 type BattleRound = { name: string; p1Score: number; p2Score: number; compatibilityScore: number; line: string; aspects: string[] };
 type BattleResult = { battleId: string; code: string; opponent: string; rounds: BattleRound[]; verdictPct: number; prediction: string; winner: "p1" | "p2" | "tie"; cardId: string; latencyMs: number; costUsd: number };
@@ -210,6 +211,26 @@ function useSpeechInput(onTranscript: (text: string) => void) {
 function battleNarration(result: BattleResult) {
   const rounds = result.rounds.map((round) => `${round.name}. ${round.p1Score} to ${round.p2Score}. ${round.line}`).join(" ");
   return `You versus ${result.opponent}. ${result.verdictPct} percent compatibility. ${rounds} Joint prediction. ${result.prediction}`;
+}
+
+function avatarUrl(seed: string) {
+  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+}
+
+function celebritySlug(name: string) {
+  return name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function FighterAvatar({ seed, celebrity = false, alt }: { seed: string; celebrity?: boolean; alt: string }) {
+  const fallback = avatarUrl(seed);
+  const [source, setSource] = useState(celebrity ? `/assets/celebs/${celebritySlug(seed)}.png` : fallback);
+  return <img src={source} alt={alt} onError={() => setSource(fallback)} />;
+}
+
+function TypedReferee({ text }: { text: string }) {
+  return <motion.p className="fight-referee" initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: .018 } } }}>
+    {Array.from(text).map((character, index) => <motion.span key={`${character}-${index}`} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>{character}</motion.span>)}
+  </motion.p>;
 }
 
 async function resultCardBlob(result: BattleResult): Promise<Blob> {
@@ -481,7 +502,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
   const [error, setError] = useState("");
   const [playerStats, setPlayerStats] = useState<FighterStats | null>(null);
   const [roundIndex, setRoundIndex] = useState(0);
-  const [roundPhase, setRoundPhase] = useState<"intro" | "scores" | "complete">("intro");
+  const [roundPhase, setRoundPhase] = useState<"banner" | "clash" | "impact" | "commentary" | "complete">("banner");
   const [shareStatus, setShareStatus] = useState("");
   const [challengeStats, setChallengeStats] = useState<FighterStats | null>(null);
   const [knownName, setKnownName] = useState("");
@@ -519,7 +540,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     return () => window.clearTimeout(timer);
   }, [opponentMode, knownPlaceQuery, knownPlace]);
   const opponent = challenge || opponentMode === "known" ? null : celebrities.find((item) => item.name === selected);
-  const statIcons: Record<keyof FighterStats, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
+  const statIcons: Record<keyof FighterStats, string> = { Love: "❤️", Career: "💼", Chaos: "⚡" };
   function fighterCard(name: string, stats: FighterStats, side: "p1" | "p2") {
     return <article className={`fighter-card ${side}`}><header><span>{side === "p1" ? "CHALLENGER" : "OPPONENT"}</span><h3>{name}</h3></header><div>{Object.entries(stats).map(([label, score]) => <div className="fighter-stat" key={label}><p><span>{statIcons[label as keyof FighterStats]} {label}</span><strong>{score}</strong></p><i><motion.b initial={{ width: 0 }} animate={{ width: `${score}%` }} /></i></div>)}</div></article>;
   }
@@ -536,7 +557,7 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
         : { p1Id: player.playerId, p1Chart: player.chart, celebrity: selected, tone };
       const nextResult = await api<BattleResult>("/battle", { method: "POST", body: JSON.stringify(battleInput) });
       setResult(nextResult);
-      setRoundIndex(0); setRoundPhase("intro");
+      setRoundIndex(0); setRoundPhase("banner");
     } catch { setError("The Arena lost the signal. Try the round again."); }
     finally { setLoading(false); }
   }
@@ -578,21 +599,30 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
     });
     const advance = () => {
       if (roundIndex === result.rounds.length - 1) setRoundPhase("complete");
-      else { setRoundIndex((value) => value + 1); setRoundPhase("intro"); }
+      else { setRoundIndex((value) => value + 1); setRoundPhase("banner"); }
     };
-    if (roundPhase === "intro") {
-      timer = window.setTimeout(() => setRoundPhase("scores"), 1600);
+    if (roundPhase === "banner") {
+      timer = window.setTimeout(() => setRoundPhase("clash"), 1450);
+      return () => window.clearTimeout(timer);
+    }
+    if (roundPhase === "clash") {
+      timer = window.setTimeout(() => setRoundPhase("impact"), 900);
+      return () => window.clearTimeout(timer);
+    }
+    if (roundPhase === "impact") {
+      timer = window.setTimeout(() => setRoundPhase("commentary"), 1100);
       return () => window.clearTimeout(timer);
     }
     const line = result.rounds[roundIndex].line;
     void (async () => {
-      const completed = await narration.speak(line, "battle");
+      const minimumReadTime = Math.min(9000, Math.max(3200, line.length * 32));
+      const [completed] = await Promise.all([narration.speak(line, "battle"), wait(minimumReadTime)]);
       if (cancelled) return;
       if (!completed) {
         const readableFallback = Math.min(14000, Math.max(6500, line.split(/\s+/).length * 400));
         await wait(readableFallback);
       } else {
-        await wait(1200);
+        await wait(900);
       }
       if (!cancelled) advance();
     })();
@@ -601,13 +631,25 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
       if (timer) window.clearTimeout(timer);
     };
   }, [result, roundIndex, roundPhase]);
-  const revealedRounds = result ? result.rounds.slice(0, roundIndex + (roundPhase === "intro" ? 0 : 1)) : [];
+  const revealedRounds = result ? result.rounds.slice(0, roundIndex + (roundPhase === "banner" ? 0 : 1)) : [];
   const runningScore = revealedRounds.reduce((score, round) => {
     if (round.p1Score > round.p2Score) score[0] += 1;
     if (round.p2Score > round.p1Score) score[1] += 1;
     return score;
   }, [0, 0]);
-  const roundIcons: Record<string, string> = { Love: "❤️", Career: "💼", Luck: "🍀", Fire: "🔥", Chaos: "🌀" };
+  const roundIcons: Record<string, string> = { Love: "❤️", Career: "💼", Chaos: "⚡" };
+  const roundThemes: Record<string, string[]> = {
+    Love: ["❤", "♡", "✦"], Career: ["💼", "🪙", "✦"], Chaos: ["🔥", "⚡", "✹"],
+  };
+  const roundLabels: Record<string, string> = {
+    Love: "VENUS / MOON HARMONY", Career: "SATURN / JUPITER / SUN", Chaos: "MARS / URANUS FRICTION",
+  };
+  const currentRound = result?.rounds[roundIndex];
+  const hasImpact = roundPhase === "impact" || roundPhase === "commentary";
+  const p1Hp = !currentRound || !hasImpact ? 100 : currentRound.p1Score < currentRound.p2Score ? currentRound.p1Score : currentRound.p1Score === currentRound.p2Score ? currentRound.p1Score : 100;
+  const p2Hp = !currentRound || !hasImpact ? 100 : currentRound.p2Score < currentRound.p1Score ? currentRound.p2Score : currentRound.p1Score === currentRound.p2Score ? currentRound.p2Score : 100;
+  const particleCount = currentRound ? Math.min(28, Math.max(6, 6 + Math.ceil(Math.abs(currentRound.p1Score - currentRound.p2Score) / 4))) : 0;
+  const isCelebrityOpponent = !challenge && opponentMode === "celebrity";
   async function downloadCard() {
     if (!result) return;
     const url = URL.createObjectURL(await resultCardBlob(result));
@@ -634,13 +676,43 @@ function BattleArena({ player, challenge }: { player: Player; challenge?: Challe
       {(challenge || opponentMode === "celebrity" || knownPreview) && <button className="primary-button fight-button" disabled={loading || (!selected && !challenge && !knownPreview)} onClick={fight}>{loading ? "Charts entering the ring…" : challenge ? "Accept challenge" : knownPreview ? `Check compatibility with ${knownPreview.name}` : `Battle ${selected || "a celebrity"}`}<ArrowRight size={18} /></button>}
       {loading && <div className="round-loader"><motion.span initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2.2 }} /><p>Computing real aspects · scoring three rounds · Referee reviewing</p></div>}
     </>}
-    {result && <motion.div className="scorecard" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-      <header><div><span>BATTLE / {result.code} · BEST OF 5</span><h2>YOU <b>{runningScore[0]}—{runningScore[1]}</b> {result.opponent}</h2></div><div className="verdict"><strong>{roundPhase === "complete" ? result.verdictPct : `${roundIndex + 1}/5`}</strong><span>{roundPhase === "complete" ? "COMPATIBILITY" : "ROUND"}</span></div></header>
-      {roundPhase === "intro" && <motion.div className="round-intro" key={`intro-${roundIndex}`} initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }}><span>ROUND {roundIndex + 1}</span><strong>{roundIcons[result.rounds[roundIndex].name]} {result.rounds[roundIndex].name.toUpperCase()}</strong><small>THE ORACLE IS READING THE RING…</small></motion.div>}
-      <div className="rounds battle-sequence">{revealedRounds.map((round, index) => <motion.article className={index === roundIndex ? "active-round" : ""} key={round.name} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}><div className="round-title"><span>ROUND 0{index + 1}</span><h3>{roundIcons[round.name]} {round.name}</h3><strong>{round.p1Score}—{round.p2Score}</strong></div><div className="dual-bars"><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p1Score}%` }} /></i><i><motion.b initial={{ width: 0 }} animate={{ width: `${round.p2Score}%` }} /></i></div><p>{round.line}</p>{round.aspects.length > 0 && <small>{round.aspects.join(" · ")}</small>}</motion.article>)}</div>
-      {roundPhase === "complete" && <motion.div className="winner-banner" initial={{ scale: .85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}><span>🏆 COSMIC WINNER</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3><p>“{result.prediction}”</p><div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy result</button><button onClick={copyChallenge}><Sparkles size={17} /> Challenge a friend</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}</motion.div>}
-      {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
-      {roundPhase === "complete" && <><footer><div><span>MINTED TO YOUR DECK</span><strong>Scorecard / {result.cardId.slice(-8)}</strong></div><div>{result.latencyMs}ms · ${result.costUsd.toFixed(4)}</div></footer><button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button></>}
+    {result && currentRound && <motion.div className={`fight-v2 ${currentRound.name.toLowerCase()} ${roundPhase === "impact" && currentRound.name === "Chaos" ? "screen-shake" : ""}`} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
+      {roundPhase !== "complete" ? <>
+        <header className="fight-hud">
+          <div className="hp-block left"><div><strong>YOU</strong><span>{Math.round(p1Hp)} HP</span></div><i><motion.b animate={{ width: `${p1Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
+          <div className="fight-round-count"><span>BATTLE / {result.code}</span><strong>{roundIndex + 1} / 3</strong><small>{runningScore[0]}—{runningScore[1]}</small></div>
+          <div className="hp-block right"><div><strong>{result.opponent}</strong><span>{Math.round(p2Hp)} HP</span></div><i><motion.b animate={{ width: `${p2Hp}%` }} transition={{ duration: .75, ease: "easeOut" }} /></i></div>
+        </header>
+
+        <div className="fight-stage">
+          <AnimatePresence>{roundPhase === "banner" && <motion.div className="fight-banner" key={`banner-${roundIndex}`} initial={{ x: "-120%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "120%", opacity: 0 }}><span>ROUND 0{roundIndex + 1}</span><strong>{roundIcons[currentRound.name]} {currentRound.name.toUpperCase()}</strong><small>{roundLabels[currentRound.name]}</small></motion.div>}</AnimatePresence>
+
+          <motion.div className={`avatar-fighter player ${currentRound.p1Score < currentRound.p2Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? 150 : roundPhase === "impact" ? 55 : 0, rotate: roundPhase === "impact" && currentRound.p1Score < currentRound.p2Score ? -10 : 0, scale: roundPhase === "impact" && currentRound.p1Score > currentRound.p2Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={player.playerId} alt="Your cosmic fighter" /><b>YOU</b><span>{currentRound.p1Score}</span></motion.div>
+          <div className="clash-core"><motion.strong animate={{ scale: roundPhase === "impact" ? [1, 1.8, 1] : 1, opacity: roundPhase === "banner" ? 0 : 1 }}>{roundPhase === "impact" ? "KRAK!" : "VS"}</motion.strong>
+            {roundPhase === "impact" && Array.from({ length: particleCount }).map((_, index) => {
+              const angle = (index / particleCount) * Math.PI * 2;
+              const distance = 62 + (index % 5) * 16;
+              return <motion.i className="fight-particle" key={`${currentRound.name}-${index}`} initial={{ x: 0, y: 0, opacity: 1, scale: .5 }} animate={{ x: Math.cos(angle) * distance, y: Math.sin(angle) * distance, opacity: 0, scale: 1.35 }} transition={{ duration: .9, ease: "easeOut" }}>{roundThemes[currentRound.name][index % roundThemes[currentRound.name].length]}</motion.i>;
+            })}
+          </div>
+          <motion.div className={`avatar-fighter opponent ${currentRound.p2Score < currentRound.p1Score && hasImpact ? "loser" : ""}`} animate={{ x: roundPhase === "clash" ? -150 : roundPhase === "impact" ? -55 : 0, rotate: roundPhase === "impact" && currentRound.p2Score < currentRound.p1Score ? 10 : 0, scale: roundPhase === "impact" && currentRound.p2Score > currentRound.p1Score ? 1.08 : 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}><FighterAvatar seed={result.opponent} celebrity={isCelebrityOpponent} alt={`${result.opponent} cosmic fighter`} /><b>{result.opponent}</b><span>{currentRound.p2Score}</span></motion.div>
+        </div>
+
+        <div className="fight-commentary">
+          <div className="round-pips">{result.rounds.map((round, index) => <i className={index < roundIndex || (index === roundIndex && hasImpact) ? "done" : index === roundIndex ? "active" : ""} key={round.name} />)}</div>
+          {roundPhase === "commentary" ? <TypedReferee key={`${roundIndex}-${currentRound.line}`} text={currentRound.line} /> : <p>{roundPhase === "banner" ? "THE ROUND IS LOCKED…" : roundPhase === "clash" ? "FIGHTERS ENGAGED…" : `${currentRound.p1Score} — ${currentRound.p2Score}`}</p>}
+          {roundPhase === "commentary" && currentRound.aspects.length > 0 && <small>{currentRound.aspects.join(" · ")}</small>}
+        </div>
+        {narration.error && <p className="voice-error score-voice-error">{narration.error}</p>}
+      </> : <motion.section className="ko-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div className="ko-stamp" initial={{ scale: 3, rotate: -12, opacity: 0 }} animate={{ scale: 1, rotate: -6, opacity: 1 }} transition={{ type: "spring", stiffness: 180 }}>K.O.</motion.div>
+        <motion.div className="ko-avatar" initial={{ scale: .65, y: 60 }} animate={{ scale: 1.16, y: 0 }} transition={{ type: "spring", delay: .2 }}><FighterAvatar seed={result.winner === "p2" ? result.opponent : player.playerId} celebrity={result.winner === "p2" && isCelebrityOpponent} alt="Battle winner" /></motion.div>
+        <span>🏆 COSMIC VERDICT</span><h3>{result.winner === "p1" ? "YOU WIN" : result.winner === "p2" ? `${result.opponent} WINS` : "COSMIC DRAW"}</h3>
+        <strong>{result.verdictPct}% COMPATIBILITY</strong><p>“{result.prediction}”</p>
+        <motion.div className="mint-card" initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ delay: .45, duration: .7 }}><span>MINTED TO YOUR DECK</span><b>SCORECARD / {result.cardId.slice(-8)}</b><small>YOU {runningScore[0]}—{runningScore[1]} {result.opponent}</small></motion.div>
+        <div className="share-actions"><button onClick={downloadCard}><Download size={17} /> Download card</button><button onClick={shareCard}><Share2 size={17} /> Share result</button><button onClick={copyLink}><Link size={17} /> Copy result</button><button onClick={copyChallenge}><Sparkles size={17} /> Challenge a friend</button></div>{shareStatus && <small className="share-status">{shareStatus}</small>}
+        <button className="primary-button" onClick={() => { narration.stop(); setResult(null); }}>Rematch with house rules <ArrowRight size={18} /></button>
+      </motion.section>}
     </motion.div>}
   </section>;
 }

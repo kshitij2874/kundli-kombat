@@ -3,10 +3,18 @@ from dataclasses import dataclass
 
 ELEMENT_BONUS = {"fire": 9, "earth": 6, "air": 7, "water": 8}
 ELEMENTS = {
-    "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
-    "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
-    "Gemini": "air", "Libra": "air", "Aquarius": "air",
-    "Cancer": "water", "Scorpio": "water", "Pisces": "water",
+    "Aries": "fire",
+    "Leo": "fire",
+    "Sagittarius": "fire",
+    "Taurus": "earth",
+    "Virgo": "earth",
+    "Capricorn": "earth",
+    "Gemini": "air",
+    "Libra": "air",
+    "Aquarius": "air",
+    "Cancer": "water",
+    "Scorpio": "water",
+    "Pisces": "water",
 }
 
 
@@ -17,11 +25,9 @@ class StatRule:
 
 
 STAT_RULES = {
-    "Love": StatRule((("Venus", 0.55), ("Moon", 0.30), ("Mars", 0.15)), "water"),
-    "Career": StatRule((("Saturn", 0.40), ("Sun", 0.35), ("Mercury", 0.25)), "earth"),
-    "Luck": StatRule((("Jupiter", 0.60), ("Moon", 0.25), ("Sun", 0.15)), "fire"),
-    "Fire": StatRule((("Mars", 0.55), ("Sun", 0.45)), "fire"),
-    "Chaos": StatRule((("Uranus", 0.55), ("Mars", 0.30), ("Moon", 0.15)), "air"),
+    "Love": StatRule((("Venus", 0.60), ("Moon", 0.40)), "water"),
+    "Career": StatRule((("Saturn", 0.40), ("Jupiter", 0.35), ("Sun", 0.25)), "earth"),
+    "Chaos": StatRule((("Mars", 0.55), ("Uranus", 0.45)), "air"),
 }
 
 

@@ -79,10 +79,19 @@ class ReadingResponse(BaseModel):
     text: str
     evidence: list[Evidence]
     refused: bool
-    policy: Literal[
-        "doom", "medical", "pregnancy", "legal", "financial", "abuse",
-        "prompt_injection", "under13",
-    ] | None
+    policy: (
+        Literal[
+            "doom",
+            "medical",
+            "pregnancy",
+            "legal",
+            "financial",
+            "abuse",
+            "prompt_injection",
+            "under13",
+        ]
+        | None
+    )
     plan: list[str]
     traceId: str
     traceExported: bool
@@ -123,19 +132,19 @@ class FighterStatsRequest(BaseModel):
 
 
 class FighterStatsResponse(BaseModel):
-    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+    stats: dict[Literal["Love", "Career", "Chaos"], int]
 
 
 class ChartPreviewResponse(BaseModel):
     name: str
     chart: dict[str, object]
-    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+    stats: dict[Literal["Love", "Career", "Chaos"], int]
     chartMode: Literal["birth-time", "solar"]
     timeNotice: str | None
 
 
 class BattleRound(BaseModel):
-    name: Literal["Love", "Career", "Luck", "Fire", "Chaos"]
+    name: Literal["Love", "Career", "Chaos"]
     p1Score: int = Field(ge=0, le=100)
     p2Score: int = Field(ge=0, le=100)
     compatibilityScore: int = Field(ge=0, le=100)
@@ -164,7 +173,7 @@ class CelebritySummary(BaseModel):
     dob: str
     big3: dict[str, str]
     timeApproximate: bool = True
-    stats: dict[Literal["Love", "Career", "Luck", "Fire", "Chaos"], int]
+    stats: dict[Literal["Love", "Career", "Chaos"], int]
 
 
 class CelebrityVerifyRequest(BaseModel):

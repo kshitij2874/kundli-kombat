@@ -20,7 +20,7 @@ DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "celebrities.json"
 
 
 class RefereeDraft(BaseModel):
-    lines: list[str] = Field(min_length=5, max_length=5)
+    lines: list[str] = Field(min_length=3, max_length=3)
     prediction: str = Field(min_length=10, max_length=180)
 
 
@@ -60,7 +60,7 @@ def list_celebrities() -> list[CelebritySummary]:
 
 
 def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> RefereeDraft:
-    icons = {"Love": "❤️", "Career": "💼", "Luck": "🍀", "Fire": "🔥", "Chaos": "🌀"}
+    icons = {"Love": "❤️", "Career": "💼", "Chaos": "⚡"}
     lines = []
     for item in rounds:
         if item.p1_score == item.p2_score:
@@ -72,7 +72,7 @@ def _fallback_referee(rounds: list[ScoredRound], opponent: str, tone: str) -> Re
                 f"{opponent} takes it {item.p2_score} to {item.p1_score}. That one left a crater."
             )
         lines.append(f"{icons[item.name]} {result}")
-    prediction = f"Five rounds down: you and {opponent} just gave the cosmos a proper main event."
+    prediction = f"Three rounds down: you and {opponent} just gave the cosmos a proper main event."
     if tone == "savage":
         prediction = (
             f"You and {opponent} could turn choosing a restaurant into a three-act cosmic trial."
@@ -104,11 +104,11 @@ def _referee(
                     {
                         "role": "system",
                         "content": (
-                            "You are the Oracle Commentator. Narrate exactly five supplied deterministic rounds in order: Love, Career, Luck, Fire, Chaos. "
+                            "You are the Oracle Commentator. Narrate exactly three supplied deterministic rounds in order: Love, Career, Chaos. "
                             "Do not alter or invent numbers. Roast only the chart matchup, never the real people or personal facts. "
                             "Each line must name the round winner and both exact scores in one punchy, playful sentence. "
                             "End with one harmless one-line cosmic verdict. Return JSON only with this exact shape: "
-                            '{"lines":["round 1","round 2","round 3","round 4","round 5"],"prediction":"verdict"}.'
+                            '{"lines":["round 1","round 2","round 3"],"prediction":"verdict"}.'
                         ),
                     },
                     {
