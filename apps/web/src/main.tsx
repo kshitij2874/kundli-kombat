@@ -517,9 +517,26 @@ function Today({ player, onAsk, onBattle, onNewSession }: { player: Player; onAs
     api<Reading>("/reading", { method: "POST", body: JSON.stringify({ playerId: player.playerId, kind: "daily", chart: player.chart, tone: "straight", lang: "en" }) })
       .then(setReading).finally(() => setLoading(false));
   }, [player]);
-  const plainTicker = ["HOW YOU CONNECT", "HOW YOU GET THINGS DONE", "HOW YOU HANDLE SURPRISES"];
+  const tickerMeanings: Record<string, string> = {
+    Sun: "YOUR CORE DRIVE",
+    Moon: "HOW YOU FEEL AND RESET",
+    Mercury: "HOW YOU THINK AND SPEAK",
+    Venus: "HOW YOU LOVE AND CONNECT",
+    Mars: "HOW YOU TAKE ACTION",
+    Jupiter: "WHERE YOU GROW",
+    Saturn: "HOW YOU BUILD DISCIPLINE",
+  };
+  const chartTicker = player.chart.placements
+    .filter((placement) => tickerMeanings[placement.planet])
+    .map((placement) => ({
+      astrology: `${placement.planet.toUpperCase()} ${Math.floor(placement.degree)}° ${placement.sign.toUpperCase()}`,
+      meaning: tickerMeanings[placement.planet],
+    }));
+  const tickerItems = chartTicker.length > 0
+    ? chartTicker
+    : [{ astrology: "YOUR BIRTH CHART", meaning: "YOUR SKY, EXPLAINED SIMPLY" }];
   return <div className="today-page">
-    <div className="chart-ticker"><div>{[...plainTicker, ...plainTicker].map((item, i) => <span key={`${item}-${i}`}>{item} <b>✦</b></span>)}</div></div>
+    <div className="chart-ticker" aria-label="Your chart placements with plain-English meanings"><div>{[...tickerItems, ...tickerItems].map((item, i) => <span key={`${item.astrology}-${i}`} aria-hidden={i >= tickerItems.length}><strong>{item.astrology}</strong><i>·</i><em>{item.meaning}</em><b>✦</b></span>)}</div></div>
     <section className="today-hero">
       <div><p className="eyebrow">Today / Your cosmic weather</p><h1>THE SKY<br />HAS <em>NOTES.</em></h1><p className="date-line">Your real chart · explained in everyday language</p><button className="text-button new-session-button" type="button" onClick={onNewSession}><RotateCcw size={15} /> New session</button></div>
       <div className="weather-card"><header><span>WHAT THIS MEANS FOR YOU</span><button className="voice-control" aria-label={narration.state === "playing" ? "Stop cosmic weather" : "Play cosmic weather"} onClick={() => narration.state === "playing" ? narration.stop() : reading && narration.speak(reading.text, "daily")} disabled={!reading || narration.state === "loading"}>{narration.state === "loading" ? <LoaderCircle className="spin" size={17} /> : narration.state === "playing" ? <Square size={15} /> : <Volume2 size={18} />}</button></header>{loading ? <div className="reading-loading"><i /><i /><i /></div> : <><p>{reading?.text}</p><AstrologyDetails items={reading?.evidence.map((item) => `${item.planet} in ${item.sign}`) ?? []} /><footer><span>{reading?.latencyMs}ms</span><span>${reading?.costUsd.toFixed(4)}</span><span>Manager reviewed</span></footer>{narration.error && <small className="voice-error">{narration.error}</small>}</>}</div>

@@ -12,6 +12,28 @@ canvas {
   max-width: 100%;
 }
 
+.chart-ticker span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.chart-ticker strong {
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.chart-ticker i {
+  margin: 0 9px;
+  color: var(--gold);
+  font-style: normal;
+}
+
+.chart-ticker em {
+  color: #aaa7a0;
+  font-style: normal;
+}
+
 .card-cover {
   z-index: 10;
 }
@@ -230,6 +252,15 @@ canvas {
 
   .chart-ticker {
     margin-inline: -12px;
+  }
+
+  .chart-ticker span {
+    padding-inline: 14px;
+    font-size: 9px;
+  }
+
+  .chart-ticker b {
+    margin-left: 16px;
   }
 
   .weather-card {
