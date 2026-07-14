@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
+import hmac
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -50,6 +51,17 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Request-ID"],
 )
+
+
+@app.middleware("http")
+async def require_gateway_secret(request: Request, call_next):
+    """Reject direct origin traffic when the deployed gateway secret is configured."""
+    expected = settings.origin_shared_secret
+    if expected and request.url.path != "/health":
+        provided = request.headers.get("X-KK-Origin-Secret", "")
+        if not hmac.compare_digest(provided, expected):
+            return JSONResponse({"detail": "Use the Kundli Kombat API gateway."}, status_code=401)
+    return await call_next(request)
 
 
 @app.get("/health")

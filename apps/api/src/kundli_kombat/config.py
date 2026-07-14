@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     dodo_api_key: str | None = Field(default=None, alias="DODO_API_KEY")
     convex_url: AnyHttpUrl | None = Field(default=None, alias="CONVEX_URL")
     web_origin: str = Field(default="http://localhost:5173", alias="WEB_ORIGIN")
+    origin_shared_secret: str | None = Field(default=None, alias="ORIGIN_SHARED_SECRET")
 
     @property
     def langfuse_configured(self) -> bool:

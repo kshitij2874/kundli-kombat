@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: kundli-kombat-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    rootDir: apps/api
+    buildCommand: python -m pip install -e .
+    startCommand: python -m uvicorn kundli_kombat.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/api/**
+        - render.yaml
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: WEB_ORIGIN
+        value: https://kundli-kombat.pages.dev
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-flash
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_BASE_URL
+        value: https://us.cloud.langfuse.com
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        value: JBFqnCBsd6RMkjVDRZzb
+      - key: ELEVENLABS_MODEL_ID
+        value: eleven_flash_v2_5
+      - key: LINKUP_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: ORIGIN_SHARED_SECRET
+        sync: false
