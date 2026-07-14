@@ -5,6 +5,7 @@
   "workspaces": [
     "apps/web",
     "packages/shared",
+    "workers/api-gateway",
     "workers/transit-ticker"
   ],
   "scripts": {
@@ -14,10 +15,11 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "worker:dev": "npm --workspace @kundli-kombat/transit-ticker run dev",
-    "worker:deploy": "npm --workspace @kundli-kombat/transit-ticker run deploy"
+    "worker:deploy": "npm --workspace @kundli-kombat/transit-ticker run deploy",
+    "gateway:test": "npm --workspace @kundli-kombat/api-gateway run test",
+    "gateway:deploy": "npm --workspace @kundli-kombat/api-gateway run deploy"
   },
   "devDependencies": {
     "convex": "^1.28.0"
   }
 }
-
