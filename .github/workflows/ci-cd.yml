@@ -42,6 +42,10 @@ jobs:
         run: npm ci
       - name: Typecheck Convex functions
         run: npx tsc --project convex/tsconfig.json
+      - name: Test permanent API gateway
+        run: npm run gateway:test
+      - name: Typecheck Cloudflare gateway
+        run: npm --workspace @kundli-kombat/api-gateway run typecheck
       - name: Build web application
         run: npm run build:web
         env:
