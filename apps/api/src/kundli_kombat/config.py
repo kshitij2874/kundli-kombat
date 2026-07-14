@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     langfuse_host: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_HOST")
     langfuse_base_url: AnyHttpUrl | None = Field(default=None, alias="LANGFUSE_BASE_URL")
     elevenlabs_api_key: str | None = Field(default=None, alias="ELEVENLABS_API_KEY")
-    elevenlabs_voice_id: str = Field(default="JBFqnCBsd6RMkjVDRZzb", alias="ELEVENLABS_VOICE_ID")
+    elevenlabs_voice_id: str = Field(default="OZdCmGlZI86CiFZ0VbRV", alias="ELEVENLABS_VOICE_ID")
     elevenlabs_model_id: str = Field(default="eleven_flash_v2_5", alias="ELEVENLABS_MODEL_ID")
     linkup_api_key: str | None = Field(default=None, alias="LINKUP_API_KEY")
     dodo_api_key: str | None = Field(default=None, alias="DODO_API_KEY")

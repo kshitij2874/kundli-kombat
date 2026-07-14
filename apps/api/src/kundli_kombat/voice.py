@@ -26,6 +26,15 @@ def _voice_settings(kind: Literal["daily", "battle", "oracle"]) -> dict[str, flo
     }
 
 
+def _voice_payload(request: VoiceRequest, model_id: str) -> dict[str, object]:
+    return {
+        "text": request.text.strip(),
+        "model_id": model_id,
+        "language_code": "en",
+        "voice_settings": _voice_settings(request.kind),
+    }
+
+
 async def generate_voice(request: VoiceRequest) -> tuple[bytes, str, bool]:
     settings = get_settings()
     if not settings.elevenlabs_api_key:
@@ -36,11 +45,7 @@ async def generate_voice(request: VoiceRequest) -> tuple[bytes, str, bool]:
         "Content-Type": "application/json",
         "xi-api-key": settings.elevenlabs_api_key,
     }
-    payload = {
-        "text": request.text.strip(),
-        "model_id": settings.elevenlabs_model_id,
-        "voice_settings": _voice_settings(request.kind),
-    }
+    payload = _voice_payload(request, settings.elevenlabs_model_id)
     with traced_task("comms.tts", task=f"voice.{request.kind}") as trace:
         with agent_step(
             "comms.elevenlabs",

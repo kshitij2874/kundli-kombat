@@ -3,7 +3,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from kundli_kombat.main import app
-from kundli_kombat.voice import _voice_settings
+from kundli_kombat.voice import VoiceRequest, _voice_payload, _voice_settings
 
 
 def test_voice_route_streams_mpeg_with_trace_headers(monkeypatch: Any) -> None:
@@ -35,3 +35,14 @@ def test_voice_speed_is_readable_and_battle_is_slowest() -> None:
     assert battle["speed"] == 0.88
     assert daily["speed"] == 0.92
     assert 0.7 <= float(battle["speed"]) < float(daily["speed"]) < 1.0
+
+
+def test_voice_payload_pins_english_for_indian_english_delivery() -> None:
+    request = VoiceRequest(text="  Your stars are ready.  ", kind="oracle")
+
+    payload = _voice_payload(request, "eleven_flash_v2_5")
+
+    assert payload["text"] == "Your stars are ready."
+    assert payload["model_id"] == "eleven_flash_v2_5"
+    assert payload["language_code"] == "en"
+    assert payload["voice_settings"] == _voice_settings("oracle")
